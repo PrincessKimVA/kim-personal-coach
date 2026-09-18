@@ -209,7 +209,35 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:16px 0}
    Part 1: content bank, state, storage, SRS, AI bridge
    ============================================================ */
 "use strict";
-const BUILD = "2026-09-18 · quiz on watch & listen, orange theme";
+const BUILD = "2026-09-18 · text-only conversation, motivational footer";
+const MOTIVATION = {
+  A2:["You don't need every word — you need the ones you actually use. Keep going.",
+      "Every phrase you use today is one you'll reach for automatically next month.",
+      "Mistakes are how the pattern gets fixed. Say it wrong, then say it again.",
+      "Small and steady beats big and skipped. One session today is enough."],
+  B1:["You're past the hardest part — understanding. Now it's about reaching for it without thinking.",
+      "You already know more than you use. Today, use one more thing you know.",
+      "Fluency isn't a bigger vocabulary — it's less hesitation with the words you have.",
+      "The gap between B1 and B2 closes one produced sentence at a time, not one more flashcard.",
+      "You don't have to sound perfect. You have to sound like you kept talking."],
+  B2:["The words you avoid because they feel risky are exactly the ones worth trying today.",
+      "At this stage, range matters more than correctness. Reach for the harder phrase.",
+      "You can already hold a conversation. Today, try to hold an argument.",
+      "Precision is next: not just a word that works, but the one that's exactly right.",
+      "You're close enough to C1 that hesitation, not grammar, is what's holding you back."],
+  C1:["C2 isn't more rules — it's choosing the one word that fits, out of the six you know.",
+      "Today, say the harder, more honest version of what you mean instead of the safe one.",
+      "You can already explain. Today, try to persuade.",
+      "The last gap is control under pressure — speed, humor, tone. Push on that today.",
+      "You don't need new vocabulary today. You need to use the vocabulary you're avoiding."],
+  C2:["Keep the edge. The people who plateau at this level are the ones who stop producing daily.",
+      "Today, aim for a sentence a native speaker would specifically compliment.",
+      "You're maintaining a peak, not climbing anymore — but peaks slip if you stop showing up."]
+};
+function motivationLine(){
+  const pool = MOTIVATION[S.level] || MOTIVATION.B1;
+  return pickDaily(pool, S.day);
+}
 
 /* ---------- seed phrase bank ----------
    [phrase, meaning, example, [variations], spokenForm, register, naturalness, commonMistake, cefr, category] */
@@ -506,13 +534,41 @@ function seedCards(){
 /* ---------- storage ---------- */
 const LSKEY = "de.fluency.v1";
 let saveTimer=null, saving=false, dirty=false;
+const DB_DOC_CAP = 220*1024; // stay safely under the platform's 256 KiB per-document limit
 function trim(){
-  if(S.sessions.length>90) S.sessions = S.sessions.slice(-90);
-  if(S.writing.length>40) S.writing = S.writing.slice(-40);
-  if(S.speaking.length>40) S.speaking = S.speaking.slice(-40);
+  // generous soft caps — far more history than before, well over 100 KB of real data
+  if(S.sessions.length>365) S.sessions = S.sessions.slice(-365);
+  if(S.writing.length>60) S.writing = S.writing.slice(-60);
+  if(S.speaking.length>60) S.speaking = S.speaking.slice(-60);
   S.writing.forEach(w=>{ if(w.text && w.text.length>1200) w.text = w.text.slice(0,1200); });
   S.speaking.forEach(w=>{ if(w.text && w.text.length>1200) w.text = w.text.slice(0,1200); });
-  if(S.convo.turns.length>40) S.convo.turns = S.convo.turns.slice(-40);
+  if(S.convo.turns.length>50) S.convo.turns = S.convo.turns.slice(-50);
+  if(S.assessments.length>15) S.assessments = S.assessments.slice(-15);
+  // hard safety net: halve the biggest logs until we're under the cap, never touch phrase cards
+  let guard = 0;
+  while(JSON.stringify(S).length > DB_DOC_CAP && guard++ < 20){
+    const opts = [
+      ["sessions",8], ["writing",5], ["speaking",5], ["convo.turns",6], ["assessments",4]
+    ];
+    let did = false;
+    for(const [path,min] of opts){
+      const arr = path==="convo.turns" ? S.convo.turns : S[path];
+      if(arr.length > min){
+        const keep = Math.max(min, Math.ceil(arr.length/2));
+        const trimmed = arr.slice(-keep);
+        if(path==="convo.turns") S.convo.turns = trimmed; else S[path] = trimmed;
+        did = true;
+      }
+    }
+    if(!did) break;
+  }
+  // last resort: drop the oldest AI/conversation-generated cards (never the seed set)
+  guard = 0;
+  while(JSON.stringify(S).length > DB_DOC_CAP && guard++ < 500){
+    const gen = Object.values(S.cards).filter(c=>c.cat==="Generated"||c.cat==="From conversation").sort((a,b)=> (a.added||"").localeCompare(b.added||""));
+    if(!gen.length) break;
+    delete S.cards[gen[0].id];
+  }
 }
 function save(){
   dirty = true;
@@ -1228,97 +1284,102 @@ VIEWS.speak = function(){
     <hr class="sep">
     <label class="lab">Tongue twister — ${esc(t1)}, trains ${esc(t2)}</label>
     <div class="quote en">${esc(t0)}</div>
-    <p class="note">Say it three times: slowly, at speed, then smiling. Record yourself once with the mic above if you want to hear the difference.</p>`;
+    <p class="note">Say it three times: slowly, at speed, then smiling.</p>`;
   const lrow = el("div","row"); lrow.style.marginTop="12px";
-  const enrich = el("button","btn accent sm","Quiz me on today's watch & listen"); enrich.setAttribute("data-ai-btn",""); enrich.disabled=!SAMPLE;
-  const dn = el("button","btn ghost sm", ls.done? "Listening done ✓" : "Mark listening done");
+  const dn = el("button","btn accent sm", ls.done? "Listening done ✓" : "Mark listening done");
   dn.onclick = ()=>{ ls.done=true; dn.textContent="Listening done ✓"; touchDay(); renderMeta(); };
-  lrow.appendChild(enrich); lrow.appendChild(dn);
+  lrow.appendChild(dn);
   L.appendChild(lrow);
-  L.appendChild(el("p","note","Tap the button above for two short multiple-choice questions on the clip and two on the podcast, so you can check you actually understood them."));
-  const lout = el("div"); L.appendChild(lout);
-  if(ls.extra) renderListen(lout, ls.extra);
-  enrich.onclick = async ()=>{
-    busy(enrich,true,"Preparing…");
-    try{
-      const r = await askJSON([{role:"user",content:
-        COACH+"\n\n"+learnerBrief()+
-        "\n\nBuild today's listening exercise around two things: WATCH — "+w0+" ("+w1+"); LISTEN — the podcast "+p0+" ("+p1+"). Keep it enjoyable, not like homework.\n"+
-        "Also write two SHORT comprehension quizzes so the learner can check they actually understood, not just watched. "+
-        "quizWatch: 2 multiple-choice questions about what actually happens or is said in that well-known section (plot, a character's line, why something happens) — real comprehension, not a vocabulary lookup. "+
-        "quizListen: 2 multiple-choice questions about that podcast's usual topic, format or tone (what kind of show it is, what a listener would expect to hear) since the exact episode varies. "+
-        "Each question needs exactly 4 options, one correct.\n"+
-        'Reply with ONLY this JSON: {"listenFor":["3 concrete things to notice in the audio: a reduction, a filler, an intonation pattern"],"phrases":[{"phrase":"","use":"when to say it"}],"shadow":"one line from that section to shadow, written the way it sounds when spoken fast","question":"one open comprehension question that needs real understanding, not just a word","answerHint":"what a good answer contains","quizWatch":[{"q":"","options":["","","",""],"correct":0,"why":"one line"}],"quizListen":[{"q":"","options":["","","",""],"correct":0,"why":"one line"}]}'
-      }],{modelTier:"default", cache:false});
-      busy(enrich,false); ls.extra = r; save(); renderListen(lout, r);
-    }catch(e){ busy(enrich,false); aiError(lout,e); }
-  };
   host.appendChild(L);
 };
-function renderListen(host, r){
-  host.innerHTML = `<hr class="sep">
-    <div class="fb"><h4>Listen for</h4><ul class="list">${(r.listenFor||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>
-    <div class="fb"><h4>Phrases to catch</h4>${(r.phrases||[]).map(p=>`<div class="en">${esc(p.phrase)}</div><p class="note" style="margin-bottom:8px">${esc(p.use||"")}</p>`).join("")}</div>
-    <div class="fb ok"><h4>Shadow this line</h4><div class="en">${esc(r.shadow||"")}</div></div>
-    <div class="fb fix"><h4>Comprehension</h4><p>${esc(r.question||"")}</p><p class="note">${esc(r.answerHint||"")}</p></div>`;
-  if((r.quizWatch||[]).length){
-    const h = el("h4"); h.className="lab"; h.style.marginTop="16px"; h.textContent="Quick check — the watch clip";
-    host.appendChild(h);
-    host.appendChild(quizBlock(r.quizWatch));
-  }
-  if((r.quizListen||[]).length){
-    const h = el("h4"); h.className="lab"; h.style.marginTop="16px"; h.textContent="Quick check — the podcast";
-    host.appendChild(h);
-    host.appendChild(quizBlock(r.quizListen));
-  }
-}
-/* small self-contained multiple-choice quiz: click an option, see feedback, no scroll-jump */
-function quizBlock(items){
-  const wrap = el("div","card tight"); wrap.style.background="var(--surface2)";
-  items.forEach((it,qi)=>{
-    const q = el("div"); q.style.marginBottom = qi<items.length-1? "16px":"0";
-    q.innerHTML = `<p style="font-weight:600;margin-bottom:8px">${qi+1}. ${esc(it.q||"")}</p>`;
-    (it.options||[]).forEach((opt,oi)=>{
-      const b = el("button","opt");
-      b.innerHTML = `<span class="k">${String.fromCharCode(65+oi)}</span>${esc(opt)}`;
-      b.onclick = ()=>{
-        if(b.dataset.locked) return;
-        [...q.querySelectorAll(".opt")].forEach(o=>o.dataset.locked="1");
-        [...q.querySelectorAll(".opt")].forEach((o,idx)=>{
-          o.disabled = true;
-          if(idx===it.correct) o.classList.add("pick-ok");
-          else if(idx===oi) o.classList.add("pick-no");
-        });
-        const fb = el("div", oi===it.correct? "fb ok":"fb fix");
-        fb.innerHTML = `<p class="note">${oi===it.correct?"Correct. ":"Not quite. "}${esc(it.why||"")}</p>`;
-        q.appendChild(fb);
-      };
-      q.appendChild(b);
-    });
-    wrap.appendChild(q);
-  });
-  return wrap;
-}
 
 /* ============================================================
-   TAB 4 — AI CONVERSATION
+   TAB 4 — CONVERSATION (fully text-based — no AI call, no mic)
    ============================================================ */
+const LINKWORDS = ["because","so","but","although","even though","however","therefore",
+  "on top of that","at the same time","though","in other words","anyway","by the way",
+  "as a result","whereas","which is why","not to mention","that said","to be fair",
+  "and","also","actually","basically","especially"];
+const CONVOS = [
+  {situation:"A friend you haven't seen in a while messages you.", aiLine:"Hey! Long time. What have you been up to?",
+   options:[
+    {id:"A", text:"I have been doing many things recently.", verdict:"stiff", why:"Grammatically fine but sounds translated — a native speaker rarely says \"doing many things.\""},
+    {id:"B", text:"I've been pretty busy lately. Mostly work and trying to improve my English.", verdict:"natural", why:"The natural chunk here is \"I've been pretty busy lately\" — present perfect continuous plus \"lately\", the standard honest answer to this question."},
+    {id:"C", text:"Recently, I am doing many things.", verdict:"grammar", why:"Mixes a present-perfect time word (\"recently\") with the present simple. Needs \"I've been doing…\"."},
+    {id:"D", text:"Yes, I have.", verdict:"off-topic", why:"This answers a yes/no question, but nothing here was yes/no — it doesn't actually respond."}
+   ], correctId:"B", target:{phrase:"I've been pretty busy lately.", meaning:"Your recent life has been full — the standard honest answer to \"what have you been up to?\"",
+     variations:["I've been really busy lately.","I've been pretty tired lately.","I've been trying to exercise more lately."], register:"Neutral", naturalness:"Native-like", when:"Any casual or neutral catch-up, spoken or written."}},
+  {situation:"A colleague asks about a task with a deadline you're not going to hit.", aiLine:"Hey, is the report ready for today?",
+   options:[
+    {id:"A", text:"Something came up, so I need a bit more time — can I send it tomorrow morning?", verdict:"natural", why:"\"Something came up\" is a complete, polite reason that doesn't require explaining details, followed by a concrete new plan."},
+    {id:"B", text:"I am very busy so it is not finished.", verdict:"stiff", why:"Understandable, but blunt and doesn't propose a solution — a professional reply usually offers a new time."},
+    {id:"C", text:"Not yet finished I am.", verdict:"grammar", why:"Word order is off — English keeps subject-verb-object here: \"I haven't finished it yet.\""},
+    {id:"D", text:"Reports are important.", verdict:"off-topic", why:"True, but it dodges the actual question entirely."}
+   ], correctId:"A", target:{phrase:"Something came up.", meaning:"A polite, complete reason for a delay or a cancellation without going into detail.",
+     variations:["Something's come up.","Something urgent came up.","If anything comes up, I'll let you know."], register:"Professional", naturalness:"Very natural", when:"Explaining a delay to a colleague or a friend without oversharing."}},
+  {situation:"Someone asks your opinion on something you found disappointing.", aiLine:"So, what did you think of the show?",
+   options:[
+    {id:"A", text:"To be honest, it wasn't really what I expected.", verdict:"natural", why:"\"To be honest\" softens a negative opinion and signals you're being direct, not rude."},
+    {id:"B", text:"I do not like it at all it is bad.", verdict:"stiff", why:"Understandable but blunt and choppy — no softening, no linking between the two ideas."},
+    {id:"C", text:"It was bad because is boring.", verdict:"grammar", why:"\"because is boring\" is missing a subject — should be \"because it was boring.\""},
+    {id:"D", text:"Shows are entertainment.", verdict:"off-topic", why:"A general statement that avoids actually answering the question."}
+   ], correctId:"A", target:{phrase:"To be honest…", meaning:"Marks the sentence as your unguarded opinion, and softens something slightly negative before you say it.",
+     variations:["Honestly…","To be perfectly honest…","If I'm being honest…"], register:"Casual", naturalness:"Native-like", when:"Giving a mildly negative or personal opinion without sounding harsh."}},
+  {situation:"A friend suggests something and you're not keen, but don't want to explain why.", aiLine:"Want to grab a big group dinner tonight?",
+   options:[
+    {id:"A", text:"I'd rather not, if that's okay — maybe just the two of us another time?", verdict:"natural", why:"\"I'd rather not\" declines without demanding a reason, and staying warm with an alternative keeps the friendship easy."},
+    {id:"B", text:"I don't want, sorry.", verdict:"stiff", why:"Missing \"to\" (\"I don't want to\"), and it's a bit abrupt without an alternative."},
+    {id:"C", text:"I am not wanting that tonight.", verdict:"grammar", why:"\"want\" isn't normally used in the continuous form — \"I don't want that tonight\" is correct."},
+    {id:"D", text:"Dinner is nice sometimes.", verdict:"off-topic", why:"Doesn't actually say yes or no to tonight's invitation."}
+   ], correctId:"A", target:{phrase:"I'd rather not, if that's okay.", meaning:"Declines something without giving a reason, and stays warm about it.",
+     variations:["I'd rather stay in tonight.","I'd rather not say.","I'd rather we talked about it tomorrow."], register:"Neutral", naturalness:"Native-like", when:"Turning something down without an explanation, while staying polite."}},
+  {situation:"Someone asks if you can help with something right now, and you're mid-task.", aiLine:"Can you take a look at this now?",
+   options:[
+    {id:"A", text:"Let me finish this first, then I'll come straight over.", verdict:"natural", why:"Clear, polite, and gives a concrete next step instead of a flat no."},
+    {id:"B", text:"I am doing something so no.", verdict:"stiff", why:"Understandable but curt — no softening and no plan for when you'll get to it."},
+    {id:"C", text:"I finishing this now.", verdict:"grammar", why:"Missing \"am\": should be \"I'm finishing this now.\""},
+    {id:"D", text:"Things take time.", verdict:"off-topic", why:"A vague statement that doesn't say yes, no, or when."}
+   ], correctId:"A", target:{phrase:"Let me get back to you on that.", meaning:"You need a moment before answering properly — buys time politely.",
+     variations:["I'll get back to you.","Let me check and get back to you.","Can I get back to you in ten minutes?"], register:"Professional", naturalness:"Native-like", when:"When you genuinely need time before giving a real answer."}},
+  {situation:"A friend tells you surprising news.", aiLine:"I actually got the promotion!",
+   options:[
+    {id:"A", text:"No way! That's amazing, congratulations!", verdict:"natural", why:"\"No way!\" is the natural, energetic reaction to good surprising news among friends."},
+    {id:"B", text:"That is good news for you.", verdict:"stiff", why:"Correct but flat — sounds like a formal card, not a friend reacting."},
+    {id:"C", text:"I am happy for you is good.", verdict:"grammar", why:"Two clauses jammed together with no connector — needs \"I'm happy for you, that's great.\""},
+    {id:"D", text:"Promotions happen sometimes.", verdict:"off-topic", why:"Technically true, completely misses that this is exciting news for your friend."}
+   ], correctId:"A", target:{phrase:"No way!", meaning:"Strong surprise or disbelief, in a good way — casual only.",
+     variations:["No way, really?","You're kidding!","Get out of here!"], register:"Very informal", naturalness:"Native-like", when:"Reacting to surprising news with friends — not in professional settings."}}
+];
+const REACTIONS = [
+  "That makes sense. What made you decide that?",
+  "Fair enough. How did that turn out in the end?",
+  "That's a good point — what happened after that?",
+  "I know what you mean. Has that changed anything for you?",
+  "Interesting. What would you do differently next time?",
+  "Come to think of it, that reminds me of something similar — has this happened before?",
+  "Fair enough. Is that something you'd want to keep doing?",
+  "That's a good point. What's the plan from here?",
+  "Really? What happened next?",
+  "Makes sense. How long has that been going on?",
+  "I hadn't thought about it that way — can you say a bit more about why?",
+  "Sounds like a lot. What's the hardest part of it?",
+  "Good to hear. What are you looking forward to next?",
+  "That's fair. Would you recommend it to someone else?",
+  "Interesting choice. What made you go with that instead?"
+];
 VIEWS.talk = function(){
   const host = $("#v-talk");
   const C = S.convo;
   host.innerHTML = "";
-  const ph = phase();
   const head = el("div","card tight");
-  head.innerHTML = `<div class="hd"><h2>Conversation</h2><span class="sub">Step ${C.stage} of 3 · plan says ${esc(ph.convo)}</span><div class="spacer"></div></div>
-    <div class="note">${C.stage===1?"Step 1 — recognise natural English. Choose the response a native speaker would actually give, then see why the others fall short."
-      :C.stage===2?"Step 2 — you produce the language yourself, with a target structure in mind. Feedback comes after each turn."
-      :"Step 3 — real conversation. No prompts, no choices. Feedback arrives in batches so the talking isn't interrupted."}</div>`;
+  head.innerHTML = `<div class="hd"><h2>Conversation</h2><span class="sub">text only — no AI call, no microphone</span><div class="spacer"></div></div>
+    <div class="note">${C.mode==="free"?"Free chat — no hints, no scripted options. Type naturally and the phrases you already know are tracked automatically.":"Guided — pick the most natural reply, see why the others fall short, then produce your own answer."}</div>`;
   const row = el("div","row"); row.style.marginTop="10px";
   const sel = el("select"); sel.style.width="auto";
-  [[1,"Step 1 — multiple choice"],[2,"Step 2 — guided production"],[3,"Step 3 — natural conversation"]].forEach(([v,l])=>{
-    const o = el("option",null,l); o.value=v; if(v===C.stage)o.selected=true; sel.appendChild(o);
+  [["guided","Guided — multiple choice + production"],["free","Free chat — no hints"]].forEach(([v,l])=>{
+    const o = el("option",null,l); o.value=v; if((C.mode||"guided")===v)o.selected=true; sel.appendChild(o);
   });
-  sel.onchange = ()=>{ C.stage=+sel.value; C.turns=[]; C.mc=null; C.userTurns=0; save(); VIEWS.talk(); };
+  sel.onchange = ()=>{ C.mode = sel.value; C.turns=[]; C.mc=null; C.userTurns=0; save(); VIEWS.talk(); };
   row.appendChild(sel);
   const reset = el("button","btn ghost sm","Start over");
   reset.onclick = ()=>{ C.turns=[]; C.mc=null; C.userTurns=0; save(); VIEWS.talk(); };
@@ -1326,32 +1387,21 @@ VIEWS.talk = function(){
   head.appendChild(row);
   host.appendChild(head);
 
-  if(C.stage===1) renderMC(host); else renderChat(host);
+  if((C.mode||"guided")==="guided") renderMC(host); else renderChat(host);
 };
 
-/* ---- stage 1: multiple choice ---- */
-async function renderMC(host){
+/* ---- guided: multiple choice + production, entirely local ---- */
+function renderMC(host){
   const C = S.convo;
   const box = el("div","card");
   host.appendChild(box);
   if(!C.mc){
     box.innerHTML = `<p class="lede">A short, realistic exchange. Pick the response that sounds like a person, not a textbook.</p>`;
-    const b = el("button","btn accent","Start an exchange"); b.setAttribute("data-ai-btn",""); b.disabled=!SAMPLE;
-    b.onclick = async ()=>{
-      busy(b,true,"Setting the scene…");
-      try{
-        const pool = activePool(10);
-        const recycle = pool.map(c=>c.p).slice(0,6);
-        const r = await askJSON([{role:"user",content:
-          COACH+"\n\n"+learnerBrief()+
-          "\n\nCreate ONE multiple-choice conversation item for step 1.\n"+
-          "Pick a realistic everyday or workplace situation. Write what the other person says. Give four candidate replies: one clearly the most natural, one understandable but stiff or over-formal, one with a real grammar problem a B1 learner would make, one that doesn't actually answer. Order them randomly.\n"+
-          (recycle.length? "If it fits naturally, build the item around one of these phrases the learner knows but doesn't use yet: "+recycle.join(" | ")+"\n":"")+
-          'Reply with ONLY this JSON: {"situation":"one line of context","aiLine":"what the other person says","options":[{"id":"A","text":"","verdict":"natural|stiff|grammar|off-topic","why":"why it works or fails, one or two lines, with the rule"}],"correctId":"A","target":{"phrase":"the useful chunk from the natural option","meaning":"","variations":["","",""],"register":"Casual|Neutral|Professional|Formal|Academic","naturalness":"Natural|Very natural|Native-like","when":"when it is appropriate"}}'
-        }],{modelTier:"default", cache:false});
-        C.mc = {item:r, picked:null, understood:null, produced:null};
-        save(); VIEWS.talk();
-      }catch(e){ busy(b,false); aiError(box,e); }
+    const b = el("button","btn accent","Start an exchange");
+    b.onclick = ()=>{
+      const item = pickDaily(CONVOS, S.day + (C.turns.length||0) + Math.floor(Math.random()*CONVOS.length));
+      C.mc = {item, picked:null, understood:null};
+      save(); VIEWS.talk();
     };
     box.appendChild(b);
     return;
@@ -1390,67 +1440,54 @@ async function renderMC(host){
       <p class="note" style="margin-top:8px">${esc(t.when||"")}</p>`);
   }
   box.appendChild(ex);
+  saveTarget(t);
 
-  if(C.mc.understood===null){
-    const q = el("div"); q.innerHTML = `<hr class="sep"><label class="lab">Do you understand this phrase?</label>`;
-    const r2 = el("div","row");
-    const yes = el("button","btn accent sm","Yes — I've got it");
-    const no = el("button","btn ghost sm","Not yet");
-    yes.onclick = ()=>{ C.mc.understood=true; saveTarget(t); save(); VIEWS.talk(); };
-    no.onclick = async ()=>{
-      busy(no,true,"Explaining it differently…");
-      try{
-        const r = await ask([{role:"user",content:
-          COACH+"\n\nThe learner says they still don't understand this chunk: \""+t.phrase+"\" ("+(t.meaning||"")+").\n"+
-          "Explain it a completely different way — simpler words, a fresh everyday example they'd actually live through in the Philippines, one contrasting example showing when NOT to use it, and one example in another situation. "+
-          "Do not repeat the previous explanation. No markdown, under 130 words."
-        }],{modelTier:"quick", cache:false});
-        busy(no,false);
-        q.insertAdjacentHTML("beforeend", `<div class="fb"><h4>Another way to see it</h4><p>${esc(r.text)}</p></div>`);
-      }catch(e){ busy(no,false); aiError(q,e); }
-    };
-    r2.appendChild(yes); r2.appendChild(no); q.appendChild(r2);
-    box.appendChild(q);
-    return;
-  }
-  /* controlled production */
+  /* controlled production — judged locally from the text, no AI */
   const prod = el("div");
-  prod.innerHTML = `<hr class="sep"><label class="lab">Now you say it. Answer this in your own words, using the pattern.</label>
+  prod.innerHTML = `<hr class="sep"><label class="lab">Now you say it. Answer this in your own words, using the pattern if you can.</label>
     <div class="quote">${esc(item.aiLine||"")}</div>`;
   const ta = el("textarea"); ta.rows=3; ta.style.marginTop="8px"; ta.placeholder="Your own answer…";
   prod.appendChild(ta);
   const out = el("div");
-  const b2 = el("button","btn sm","Send my answer"); b2.style.marginTop="8px"; b2.setAttribute("data-ai-btn",""); b2.disabled=!SAMPLE;
-  b2.onclick = async ()=>{
+  const b2 = el("button","btn sm","Check my answer"); b2.style.marginTop="8px";
+  b2.onclick = ()=>{
     const txt = ta.value.trim(); if(!txt) return;
-    out.innerHTML=""; busy(b2,true,"Reading…");
-    try{
-      const r = await askJSON([{role:"user",content:
-        COACH+"\n\n"+learnerBrief()+
-        "\n\nTarget pattern: "+t.phrase+"\nPrompt they answered: "+item.aiLine+"\nTheir answer: "+txt+
-        '\n\nReply with ONLY this JSON: {"wellDone":"one specific thing, naming the structure","correction":{"mine":"","better":"","why":""},"naturalness":"Unnatural|Understandable|Natural|Very natural|Native-like","variation":"one useful variation of the target pattern they could use next","usedTarget":true,"errorTags":["articles"],"reply":"your natural conversational reply that keeps the conversation going and asks a follow-up question"}'
-      }],{modelTier:"default", cache:false});
-      busy(b2,false);
-      (r.errorTags||[]).forEach(logError);
-      const card = Object.values(S.cards).find(c=> c.p===t.phrase);
-      if(card && usesPhrase(txt, t.phrase)) markUse(card,"prompt");
-      out.innerHTML = `<div class="fb ok"><h4>What you did well</h4><p>${esc(r.wellDone||"")}</p></div>
-        ${r.correction&&r.correction.better?`<div class="fb fix"><h4>Your sentence</h4><div class="en strike">${esc(r.correction.mine||txt)}</div><h4>More natural</h4><div class="en">${esc(r.correction.better)}</div><p class="note">${esc(r.correction.why||"")}</p></div>`:""}
-        <div class="row"><span class="pill g">${esc(r.naturalness||"")}</span></div>
-        ${r.variation?`<div class="fb"><h4>Try this variation next</h4><div class="en">${esc(r.variation)}</div></div>`:""}
-        <div class="chat" style="margin-top:12px"><div class="msg ai">${esc(r.reply||"")}</div></div>`;
-      S.daily.talk.done = true; touchDay(); renderMeta();
-      const nx = el("div","row");
-      const a = el("button","btn accent sm","Keep this conversation going");
-      a.onclick = ()=>{ S.convo.stage=2; S.convo.turns=[{r:"ai",t:r.reply||item.aiLine}]; S.convo.userTurns=0; S.convo.mc=null; save(); VIEWS.talk(); };
-      const b3 = el("button","btn ghost sm","New exchange");
-      b3.onclick = ()=>{ S.convo.mc=null; save(); VIEWS.talk(); };
-      nx.appendChild(a); nx.appendChild(b3); out.appendChild(nx);
-      save();
-    }catch(e){ busy(b2,false); aiError(out,e); }
+    const r = localJudge(txt, t.phrase);
+    const card = Object.values(S.cards).find(c=> c.p===t.phrase);
+    if(card && r.usedTarget) markUse(card,"prompt");
+    out.innerHTML = `<div class="fb ${r.usedTarget?"ok":"fix"}"><h4>${r.usedTarget?"Used the target phrase":"Didn't use the target phrase"}</h4>
+        ${r.usedTarget?`<p class="note">Nice — that's exactly the point of the drill.</p>`:`<p class="note">Try folding in: <b>${esc(t.phrase)}</b></p>`}</div>
+      <div class="row" style="margin:8px 0"><span class="pill ${r.length==="short"?"r":"g"}">${r.length==="short"?"a bit short":"good length"}</span>
+        <span class="pill ${r.linking?"g":""}">${r.linking?"linked ideas":"no linking word"}</span>
+        <span class="pill ${r.contraction?"g":""}">${r.contraction?"used a contraction":"no contraction"}</span></div>
+      <div class="fb"><h4>A model answer</h4><div class="en">${esc(modelAnswer(t))}</div></div>
+      <div class="chat" style="margin-top:12px"><div class="msg ai">${esc(rnd(REACTIONS))}</div></div>`;
+    S.daily.talk.done = true; touchDay(); renderMeta();
+    const nx = el("div","row");
+    const a = el("button","btn accent sm","Keep this conversation going");
+    a.onclick = ()=>{ S.convo.mode="free"; S.convo.turns=[{r:"ai",t:rnd(REACTIONS)}]; S.convo.userTurns=0; S.convo.mc=null; save(); VIEWS.talk(); };
+    const b3 = el("button","btn ghost sm","New exchange");
+    b3.onclick = ()=>{ S.convo.mc=null; save(); VIEWS.talk(); };
+    nx.appendChild(a); nx.appendChild(b3); out.appendChild(nx);
+    save();
   };
   prod.appendChild(b2); prod.appendChild(out);
   box.appendChild(prod);
+}
+function modelAnswer(t){
+  if(!t||!t.phrase) return "";
+  const p = t.phrase.replace(/…|\.\.\.|\(.*?\)|\+.*$/g,"").trim();
+  return p.endsWith(".")||p.endsWith("!")||p.endsWith("?") ? p+" That's roughly how I'd put it, anyway." : p+" — that's how I'd put it.";
+}
+function localJudge(text, targetPhrase){
+  const n = words(text);
+  const lower = " "+text.toLowerCase()+" ";
+  return {
+    usedTarget: targetPhrase ? (matchable(targetPhrase) ? usesPhrase(text, targetPhrase) : lower.includes(" "+targetPhrase.toLowerCase().slice(0,12))) : false,
+    length: n<6 ? "short" : "ok",
+    linking: LINKWORDS.some(w=> lower.includes(" "+w+" ")),
+    contraction: /\b\w+'\w+\b/.test(text)
+  };
 }
 function saveTarget(t){
   if(!t||!t.phrase) return;
@@ -1462,20 +1499,7 @@ function saveTarget(t){
   save();
 }
 
-/* ---- stages 2 & 3: live conversation ---- */
-function chatInstructions(){
-  const C = S.convo;
-  const recycle = activePool(8).map(c=>c.p);
-  return COACH+"\n\n"+learnerBrief()+"\n\n"+
-  "You are now the learner's conversation partner in a chat. Rules for this mode:\n"+
-  "- Reply as a real person would: 2-4 sentences, warm, specific, and end with a follow-up question. Plain text, no markdown, no lists.\n"+
-  "- Never open with a greeting if the conversation is already running.\n"+
-  (C.stage===2
-    ? "- STEP 2 (guided): weave these phrases into YOUR OWN turns so the learner hears them in context, and create situations where they would naturally use one: "+recycle.slice(0,5).join(" | ")+". Do not tell them which phrase to use and do not force one into every turn.\n"
-    : "- STEP 3 (natural): no scaffolding at all. Push them: ask for reasons, examples, comparisons, opinions, hypotheticals. Disagree sometimes. Change topic when it stalls.\n")+
-  "- Do NOT correct their English inside this reply, however tempting. Corrections are delivered separately.\n"+
-  "- If they clearly don't understand a word you used, rephrase it naturally inside the conversation.";
-}
+/* ---- free chat: local reactions + silent phrase tracking, no AI, no mic ---- */
 function renderChat(host){
   const C = S.convo;
   const box = el("div","card");
@@ -1489,8 +1513,8 @@ function renderChat(host){
   const ta = el("textarea"); ta.rows=2; ta.placeholder = C.turns.length? "Your reply…" : "Say anything to start — or press Open with a topic.";
   box.appendChild(ta);
   const row = el("div","row"); row.style.marginTop="8px";
-  const send = el("button","btn accent","Send"); send.setAttribute("data-ai-btn",""); send.disabled=!SAMPLE;
-  const fbb = el("button","btn ghost sm","How am I doing?"); fbb.setAttribute("data-ai-btn",""); fbb.disabled=!SAMPLE;
+  const send = el("button","btn accent","Send");
+  const fbb = el("button","btn ghost sm","Session summary");
   row.appendChild(send); row.appendChild(fbb);
   if(!C.turns.length){
     const op = el("button","btn ghost sm","Open with a topic");
@@ -1502,56 +1526,42 @@ function renderChat(host){
   host.appendChild(box);
   ta.addEventListener("keydown", e=>{ if(e.key==="Enter" && (e.metaKey||e.ctrlKey)) send.click(); });
 
-  async function doSend(){
+  function doSend(){
     const txt = ta.value.trim(); if(!txt) return;
     ta.value=""; out.innerHTML="";
     C.turns.push({r:"me", t:txt}); C.userTurns++;
-    const mine = el("div","msg me", txt); log.appendChild(mine);
-    /* silent active-phrase check */
-    const hits = Object.values(S.cards).filter(c=> c.lvl>=2 && c.lvl<7 && usesPhrase(txt,c.p));
+    log.appendChild(el("div","msg me", txt));
+    const hits = Object.values(S.cards).filter(c=> c.lvl>=2 && c.lvl<7 && matchable(c.p) && usesPhrase(txt,c.p));
     hits.slice(0,4).forEach(c=> markUse(c,"spon"));
-    const bubble = el("div","msg ai","Thinking…"); log.appendChild(bubble);
-    bubble.scrollIntoView({block:"nearest"});
-    busy(send,true,"…");
-    const turns = [{role:"user", content:chatInstructions()}].concat(
-      C.turns.slice(-14).filter(t=>t.r!=="sys").map(t=>({role: t.r==="me"?"user":"assistant", content:t.t}))
-    );
-    if(turns[turns.length-1].role!=="user") turns.push({role:"user", content:txt});
-    try{
-      const r = await ask(turns, {cache:false, modelTier:"quick", onText:({text})=>{ bubble.textContent = text; }});
-      C.turns.push({r:"ai", t:r.text});
-      save();
-      busy(send,false);
-      if(hits.length){
-        const s = el("div","msg sys");
-        s.innerHTML = "Noticed: you used <b>"+hits.slice(0,3).map(c=>esc(c.p)).join("</b>, <b>")+"</b> without being prompted. That counts as spontaneous use.";
-        log.appendChild(s); C.turns.push({r:"sys", t:s.innerHTML});
-      }
-      if(C.userTurns % 4 === 0) feedbackNow(out);
-      S.daily.talk.done = true; touchDay(); renderMeta();
-    }catch(e){ busy(send,false); bubble.remove(); C.turns.pop(); aiError(out,e); }
+    if(hits.length){
+      const s = el("div","msg sys");
+      s.innerHTML = "Noticed: you used <b>"+hits.slice(0,3).map(c=>esc(c.p)).join("</b>, <b>")+"</b> without being prompted. That counts as spontaneous use.";
+      log.appendChild(s); C.turns.push({r:"sys", t:s.innerHTML});
+    }
+    const reply = rnd(REACTIONS);
+    C.turns.push({r:"ai", t:reply});
+    log.appendChild(el("div","msg ai", reply));
+    S.daily.talk.done = true; touchDay(); renderMeta(); save();
+    if(C.userTurns % 4 === 0) sessionSummary(out);
   }
   send.onclick = doSend;
-  fbb.onclick = ()=> feedbackNow(out);
+  fbb.onclick = ()=> sessionSummary(out);
 
-  async function feedbackNow(target){
-    const mine = C.turns.filter(t=>t.r==="me").slice(-4).map(t=>t.t);
-    if(!mine.length) return;
-    target.innerHTML = `<div class="skel">Reviewing your last few turns…</div>`;
-    try{
-      const r = await askJSON([{role:"user",content:
-        COACH+"\n\n"+learnerBrief()+
-        "\n\nHere are the learner's last turns in a live conversation:\n"+mine.map((m,i)=>(i+1)+". "+m).join("\n")+
-        "\n\nGive a SHORT feedback summary. Keep it to the highest-value points only.\n"+
-        'Reply with ONLY this JSON: {"naturalness":"Unnatural|Understandable|Natural|Very natural|Native-like","grammar":"the single most important error, or empty string","better":"one of their sentences rewritten the way a C1 speaker would say it","linking":"one line on how they connected ideas","vocabulary":"one line on precision and range","fluency":"one line on hesitation, repetition or restarts visible in the text","improvement":"the one thing to work on right now","errorTags":["articles"]}'
-      }],{modelTier:"quick", cache:false});
-      (r.errorTags||[]).forEach(logError); save();
-      target.innerHTML = `<hr class="sep"><div class="row"><span class="pill g">${esc(r.naturalness||"")}</span></div>
-        ${r.grammar?`<div class="fb fix"><h4>Grammar</h4><p>${esc(r.grammar)}</p></div>`:""}
-        ${r.better?`<div class="fb"><h4>Said better</h4><div class="en">${esc(r.better)}</div></div>`:""}
-        <div class="fb"><h4>Linking</h4><p class="note">${esc(r.linking||"")}</p><h4>Vocabulary</h4><p class="note">${esc(r.vocabulary||"")}</p><h4>Fluency</h4><p class="note">${esc(r.fluency||"")}</p></div>
-        <div class="fb ok"><h4>Work on this right now</h4><p>${esc(r.improvement||"")}</p></div>`;
-    }catch(e){ target.innerHTML=""; aiError(target,e); }
+  function sessionSummary(target){
+    const mineTurns = C.turns.filter(t=>t.r==="me");
+    if(!mineTurns.length){ target.innerHTML = `<div class="note">Send a message first — the summary is built from what you actually typed.</div>`; return; }
+    const usedIds = new Set();
+    mineTurns.forEach(t=> Object.values(S.cards).forEach(c=>{ if(matchable(c.p) && usesPhrase(t.t,c.p)) usedIds.add(c.id); }));
+    const used = [...usedIds].map(cardById).filter(Boolean);
+    const avgLen = Math.round(mineTurns.reduce((a,t)=>a+words(t.t),0)/mineTurns.length);
+    const linked = mineTurns.filter(t=>{const l=" "+t.t.toLowerCase()+" "; return LINKWORDS.some(w=>l.includes(" "+w+" "));}).length;
+    target.innerHTML = `<hr class="sep">
+      <div class="scoreline"><span>Turns sent</span><b>${mineTurns.length}</b></div>
+      <div class="scoreline"><span>Average length</span><b>${avgLen} words</b></div>
+      <div class="scoreline"><span>Turns with a linking word</span><b>${linked}</b></div>
+      <div class="scoreline"><span>Known phrases used</span><b>${used.length}</b></div>
+      ${used.length?`<div class="fb ok"><h4>You used</h4>${used.map(c=>`<div class="en">${esc(c.p)}</div>`).join("")}</div>`:`<div class="fb fix"><h4>Try weaving in a phrase you know</h4><p class="note">${(activePool(3).map(c=>esc(c.p)).join(" · ")||"Keep chatting to build up your active pool.")}</p></div>`}
+      <p class="note" style="margin-top:8px">${esc(motivationLine())}</p>`;
   }
 }
 
@@ -1734,17 +1744,20 @@ async function runAssessment(btn, out){
   }catch(e){}
   await load();
   ensureDaily();
-  /* adapt conversation step to the plan, unless the learner has moved ahead */
-  if(S.convo.stage < phase().stage && !S.convo.turns.length) S.convo.stage = phase().stage;
+  /* default conversation mode from the plan, unless the learner already picked one */
+  if(!S.convo.mode) S.convo.mode = phase().stage>=3 ? "free" : "guided";
   save();
   renderMeta();
+  $("#foot").innerHTML = `<div class="quote" style="font-size:15px">${esc(motivationLine())}</div>`;
   go("cards");
   initClaude().then(()=>{
     document.querySelectorAll("[data-ai-btn]").forEach(n=>{ n.disabled = !SAMPLE; });
     if(!SAMPLE){
-      $("#foot").textContent = "Coaching feedback needs Claude. Flashcards, the schedule, timers and tracking work without it. · Updated "+BUILD;
+      $("#foot").innerHTML = `<div class="quote" style="font-size:15px;margin-bottom:4px">${esc(motivationLine())}</div>
+        <div style="font-size:11px">Coaching feedback for writing and speaking needs Claude. Flashcards, the schedule, phrase memory, and conversation practice all work without it. · Updated ${esc(BUILD)}</div>`;
     }else{
-      $("#foot").textContent = "Grade honestly. Produce more than you study. Come back tomorrow. · Updated "+BUILD;
+      $("#foot").innerHTML = `<div class="quote" style="font-size:15px;margin-bottom:4px">${esc(motivationLine())}</div>
+        <div style="font-size:11px">Grade honestly. Produce more than you study. Come back tomorrow. · Updated ${esc(BUILD)}</div>`;
     }
     if(CUR) go(CUR);
   });
