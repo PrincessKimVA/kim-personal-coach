@@ -101,6 +101,8 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:16px 0}
 .chip{font-size:12px;padding:4px 9px;border-radius:999px;border:1px solid var(--line2);color:var(--muted);background:var(--surface)}
 .chip.done{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
 .chip.done::before{content:"✓ "}
+.chip.on{border-color:var(--accent);color:var(--accent);font-weight:600;box-shadow:inset 0 0 0 1px var(--accent)}
+.chip.on::after{content:" • now";color:var(--muted);font-weight:400}
 
 /* flashcard */
 .flash{min-height:210px;display:flex;flex-direction:column;justify-content:center;text-align:center;padding:26px 18px}
@@ -186,10 +188,12 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:16px 0}
     </div>
   </div>
   <nav class="tabs" role="tablist" id="tabs">
-    <button class="tab" role="tab" data-v="cards" aria-selected="true">Phrase memory<span class="dot"></span></button>
+    <button class="tab" role="tab" data-v="cards" aria-selected="true">Anki<span class="dot"></span></button>
     <button class="tab" role="tab" data-v="write" aria-selected="false">Writing<span class="dot"></span></button>
-    <button class="tab" role="tab" data-v="speak" aria-selected="false">Speak + listen<span class="dot"></span></button>
-    <button class="tab" role="tab" data-v="talk" aria-selected="false">Conversation<span class="dot"></span></button>
+    <button class="tab" role="tab" data-v="speak" aria-selected="false">Speaking<span class="dot"></span></button>
+    <button class="tab" role="tab" data-v="listen" aria-selected="false">Listening<span class="dot"></span></button>
+    <button class="tab" role="tab" data-v="talk" aria-selected="false">AI conversation<span class="dot"></span></button>
+    <button class="tab" role="tab" data-v="mind" aria-selected="false">Mind test<span class="dot"></span></button>
     <button class="tab" role="tab" data-v="prog" aria-selected="false">Progress<span class="dot"></span></button>
   </nav>
 </header>
@@ -199,9 +203,11 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:16px 0}
   <section id="v-cards"></section>
   <section id="v-write" hidden></section>
   <section id="v-speak" hidden></section>
+  <section id="v-listen" hidden></section>
   <section id="v-talk" hidden></section>
+  <section id="v-mind" hidden></section>
   <section id="v-prog" hidden></section>
-  <div class="foot" id="foot"></div>
+  <div class="foot" id="foot" hidden></div>
 </main>
 <script>
 /* ============================================================
@@ -209,36 +215,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:16px 0}
    Part 1: content bank, state, storage, SRS, AI bridge
    ============================================================ */
 "use strict";
-const BUILD = "2026-09-18 · text-only conversation, motivational footer";
-const MOTIVATION = {
-  A2:["You don't need every word — you need the ones you actually use. Keep going.",
-      "Every phrase you use today is one you'll reach for automatically next month.",
-      "Mistakes are how the pattern gets fixed. Say it wrong, then say it again.",
-      "Small and steady beats big and skipped. One session today is enough."],
-  B1:["You're past the hardest part — understanding. Now it's about reaching for it without thinking.",
-      "You already know more than you use. Today, use one more thing you know.",
-      "Fluency isn't a bigger vocabulary — it's less hesitation with the words you have.",
-      "The gap between B1 and B2 closes one produced sentence at a time, not one more flashcard.",
-      "You don't have to sound perfect. You have to sound like you kept talking."],
-  B2:["The words you avoid because they feel risky are exactly the ones worth trying today.",
-      "At this stage, range matters more than correctness. Reach for the harder phrase.",
-      "You can already hold a conversation. Today, try to hold an argument.",
-      "Precision is next: not just a word that works, but the one that's exactly right.",
-      "You're close enough to C1 that hesitation, not grammar, is what's holding you back."],
-  C1:["C2 isn't more rules — it's choosing the one word that fits, out of the six you know.",
-      "Today, say the harder, more honest version of what you mean instead of the safe one.",
-      "You can already explain. Today, try to persuade.",
-      "The last gap is control under pressure — speed, humor, tone. Push on that today.",
-      "You don't need new vocabulary today. You need to use the vocabulary you're avoiding."],
-  C2:["Keep the edge. The people who plateau at this level are the ones who stop producing daily.",
-      "Today, aim for a sentence a native speaker would specifically compliment.",
-      "You're maintaining a peak, not climbing anymore — but peaks slip if you stop showing up."]
-};
-function motivationLine(){
-  const pool = MOTIVATION[S.level] || MOTIVATION.B1;
-  return pickDaily(pool, S.day);
-}
-
+const BUILD = "2026-09-18 · self-contained coaching, context-aware daily practice";
 /* ---------- seed phrase bank ----------
    [phrase, meaning, example, [variations], spokenForm, register, naturalness, commonMistake, cefr, category] */
 const REG = {c:"Casual", n:"Neutral", p:"Professional", f:"Formal", a:"Academic", vi:"Very informal"};
@@ -355,7 +332,7 @@ const SEED = [
 ["I'd just + past participle when…","Sets up a story: one thing had just finished when another began.","I'd just sat down when the phone rang.",["We'd just left when it started raining.","I'd just finished when he walked in."],"","n",4,"Using simple past for both actions loses the sequence.","B2","Storytelling"]
 ];
 
-/* fallback banks used when Claude isn't available */
+/* the app's own daily content banks */
 const BANK = {
   watch:[
     ["Kung Fu Panda (2008)","the first 10 minutes — Po's dream and the noodle shop","fast casual speech, dropped 'g' endings, enthusiasm"],
@@ -512,7 +489,8 @@ function freshState(){
     errors:{}, sessions:[], writing:[], speaking:[],
     convo:{stage:1, turns:[], userTurns:0, lastPhrase:null},
     daily:null, profile:null, assessments:[],
-    counts:{reviewed:0,recalled:0,used:0}, dismissed:{}
+    counts:{reviewed:0,recalled:0,used:0}, dismissed:{},
+    mind:{history:[], cat:{}, streak:0}
   };
 }
 let S = freshState();
@@ -703,34 +681,492 @@ function learnerBrief(){
 }
 
 async function initClaude(){
+  /* optional silent enrichment: if richer analysis is available it is used,
+     and if it isn't, the local engine below produces the same feedback.
+     Nothing in the interface ever depends on it or mentions it. */
   try{
     if(!window.claude || !claude.use) return;
     SAMPLE = await claude.use("sample");
   }catch(e){ SAMPLE = null; }
   SAMPLE_READY = true;
-  document.querySelectorAll("[data-needs-ai]").forEach(n=>{ n.hidden = !!SAMPLE; });
-  document.querySelectorAll("[data-ai-btn]").forEach(n=>{ n.disabled = !SAMPLE; });
-}
-function aiMsg(code){
-  return ({
-    not_granted:"Claude isn't allowed for this page, so AI feedback is off. Everything else still works.",
-    sampling_disabled:"Claude isn't available on this account. Flashcards, timers and tracking still work.",
-    rate_limited:"Too many requests for now. Wait a minute and try again.",
-    session_expired:"Your session expired — sign in to claude.ai again.",
-    refused:"Claude declined that one. Try rephrasing your answer.",
-    invalid_json:"The reply came back malformed. Try again.",
-    empty_completion:"No answer came back. Try again with a bit less text.",
-    cancelled:""
-  })[code] || "Something went wrong reaching Claude. Try again in a moment.";
-}
-async function ask(input, opts){
-  if(!SAMPLE) throw {code:"not_granted", message:"no sample"};
-  return SAMPLE(input, opts||{});
 }
 async function askJSON(input, opts){
-  if(!SAMPLE) throw {code:"not_granted", message:"no sample"};
-  return SAMPLE.json(input, opts||{});
+  if(!SAMPLE) return null;
+  try{ return await SAMPLE.json(input, opts||{}); }
+  catch(e){ return null; }
 }
+
+/* ============================================================
+   LOCAL COACHING ENGINE — the app's own English knowledge.
+   Every kind of feedback in this app is produced here first:
+   error rules, naturalness rules, banding, weak-spot phrase
+   generation, profile and 30-day assessment. Nothing in the
+   interface depends on an outside service.
+   ============================================================ */
+const IRREG = {went:"go", saw:"see", ate:"eat", came:"come", took:"take", made:"make", got:"get",
+  did:"do", had:"have", said:"say", told:"tell", knew:"know", thought:"think", brought:"bring",
+  bought:"buy", wrote:"write", spoke:"speak", gave:"give", left:"leave", felt:"feel", found:"find"};
+
+/* re: pattern · to: replacement · why: the rule · tag: error tracker tag · w: severity */
+const RULES = [
+  {re:/\bI am agree\b/i, to:"I agree", why:"“Agree” is already the verb — English doesn't put “am” in front of it.", tag:"verb tense", w:3},
+  {re:/\bI am not agree\b/i, to:"I don't agree", why:"Negate the verb itself: “I don't agree”, or “I disagree”.", tag:"verb tense", w:3},
+  {re:/\b(depend|depends|depended)\s+(to|from|of)\b/i, to:"$1 on", why:"“Depend” takes “on” — fixed collocation.", tag:"prepositions", w:3},
+  {re:/\bdiscuss(ed|ing)?\s+about\b/i, to:"discuss$1", why:"“Discuss” is transitive: you discuss something, not discuss about it.", tag:"prepositions", w:2},
+  {re:/\bexplain(ed)?\s+(me|him|her|us|them)\b/i, to:"explain$1 to $2", why:"“Explain” needs “to” before the person: explain it to me.", tag:"prepositions", w:3},
+  {re:/\bexplain about\b/i, to:"explain", why:"You explain something — “about” isn't used after “explain”.", tag:"prepositions", w:2},
+  {re:/\binformations\b/i, to:"information", why:"Uncountable noun — no plural “s”.", tag:"plurals", w:3},
+  {re:/\badvices\b/i, to:"advice", why:"Uncountable. Use “a piece of advice” when you need one item.", tag:"plurals", w:3},
+  {re:/\bequipments\b/i, to:"equipment", why:"Uncountable noun.", tag:"plurals", w:2},
+  {re:/\bfeedbacks\b/i, to:"feedback", why:"Uncountable in English.", tag:"plurals", w:2},
+  {re:/\bresearches\b/i, to:"research", why:"Uncountable in this sense.", tag:"plurals", w:2},
+  {re:/\bstuffs\b/i, to:"stuff", why:"“Stuff” has no plural form.", tag:"plurals", w:2},
+  {re:/\bpeoples\b/i, to:"people", why:"“People” is already plural (“peoples” only means nations).", tag:"plurals", w:3},
+  {re:/\bone of the (reason|thing|problem|way|issue|option|challenge)\b/i, to:"one of the $1s", why:"“One of the…” is always followed by a plural noun.", tag:"plurals", w:2},
+  {re:/\bmore better\b/i, to:"better", why:"“Better” is already comparative — never double it.", tag:"word order", w:3},
+  {re:/\bmost (easiest|biggest|best|hardest|fastest)\b/i, to:"$1", why:"“-est” is already superlative.", tag:"word order", w:3},
+  {re:/\bthe both\b/i, to:"both", why:"“Both” doesn't take “the”.", tag:"articles", w:2},
+  {re:/\bcan able to\b/i, to:"can", why:"Use either “can” or “be able to”, never both.", tag:"verb tense", w:3},
+  {re:/\bwill can\b/i, to:"will be able to", why:"Two modals can't stack — the future of “can” is “will be able to”.", tag:"verb tense", w:3},
+  {re:/\bmust to\b/i, to:"must", why:"“Must” takes a bare infinitive: must go, not must to go.", tag:"verb tense", w:3},
+  {re:/\b(he|she|it) don't\b/i, to:"$1 doesn't", why:"Third person singular takes “doesn't”.", tag:"subject–verb agreement", w:3},
+  {re:/\bdoesn't has\b/i, to:"doesn't have", why:"After “doesn't”, the verb goes back to its base form.", tag:"subject–verb agreement", w:3},
+  {re:/\bdon't has\b/i, to:"don't have", why:"Base form after “don't”.", tag:"subject–verb agreement", w:3},
+  {re:/\b(we|they|you) was\b/i, to:"$1 were", why:"Plural subjects take “were”.", tag:"subject–verb agreement", w:3},
+  {re:/\b(it|he|she)\s+(depend|seem|look|need|want|think|work|help|make|take|feel|come|know|say|mean|matter|include|require|happen|start|arrive)\b/i, to:"$1 $2s", why:"Third person singular adds “-s” to the verb in the present.", tag:"subject–verb agreement", w:3},
+  {re:/\b(it|he|she)\s+(go|do)\b/i, fn:(m)=>m[1]+" "+(m[2].toLowerCase()==="go"?"goes":"does"), why:"“Go” and “do” take “-es” in the third person singular.", tag:"subject–verb agreement", w:3},
+  {re:/\beveryone are\b/i, to:"everyone is", why:"“Everyone” is grammatically singular.", tag:"subject–verb agreement", w:3},
+  {re:/\bthere is many\b/i, to:"there are many", why:"Plural noun after “many” needs “there are”.", tag:"subject–verb agreement", w:3},
+  {re:/\bdidn't (went|saw|ate|came|took|made|got|did|had|said|told|knew|thought|brought|bought|wrote|spoke|gave|left|felt|found)\b/i, fn:(m)=>"didn't "+(IRREG[m[1].toLowerCase()]||m[1]), why:"After “didn't”, use the base form — the past is already carried by “did”.", tag:"verb tense", w:3},
+  {re:/\bI have (went|saw|ate|came|wrote)\b/i, fn:(m)=>"I went", why:"With a finished past time, use the simple past, not the present perfect.", tag:"verb tense", w:3},
+  {re:/\bsince (\d+|a few|two|three|several) (year|month|week|day|hour)s?\b/i, to:"for $1 $2s", why:"“For” + a length of time; “since” + a starting point (since 2019).", tag:"prepositions", w:3},
+  {re:/\bcope up with\b/i, to:"cope with", why:"The verb is “cope with” — no “up”.", tag:"collocations", w:2},
+  {re:/\bbased from\b/i, to:"based on", why:"Fixed collocation: based on.", tag:"collocations", w:2},
+  {re:/\bresult to\b/i, to:"result in", why:"Something results in an outcome.", tag:"collocations", w:2},
+  {re:/\bin behalf of\b/i, to:"on behalf of", why:"The set phrase is “on behalf of”.", tag:"collocations", w:2},
+  {re:/\bmarried with\b/i, to:"married to", why:"You're married to someone.", tag:"prepositions", w:2},
+  {re:/\bdifferent with\b/i, to:"different from", why:"“Different from” in neutral and American English.", tag:"prepositions", w:2},
+  {re:/\bsame with\b/i, to:"the same as", why:"“The same as” for comparison.", tag:"prepositions", w:2},
+  {re:/\barrive to\b/i, to:"arrive at", why:"Arrive at a place, arrive in a city.", tag:"prepositions", w:2},
+  {re:/\bin the internet\b/i, to:"on the internet", why:"Things are “on” the internet.", tag:"prepositions", w:2},
+  {re:/\bdespite of\b/i, to:"despite", why:"“Despite” takes no “of”; “in spite of” does.", tag:"prepositions", w:3},
+  {re:/\bin (monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i, to:"on $1", why:"Days take “on”.", tag:"prepositions", w:2},
+  {re:/\bhard time to ([a-z]+)\b/i, fn:(m)=>"hard time "+m[1].replace(/e$/,"")+"ing", why:"“Have a hard time” is followed by -ing, not “to”.", tag:"verb tense", w:2},
+  {re:/\blooking forward to (hear|meet|see|work|start|join)\b/i, to:"looking forward to $1ing", why:"“To” here is a preposition, so the verb takes -ing.", tag:"verb tense", w:3},
+  {re:/\bsuggest (me|him|her|them|you) to\b/i, to:"suggest that $1 should", why:"“Suggest” doesn't take an object + “to”.", tag:"word order", w:2},
+  {re:/\ba (advice|information|hour|apple|idea|opinion|email|interview|opportunity|honest|umbrella|answer|issue|update|example)\b/i, to:"an $1", why:"“An” before a vowel sound.", tag:"articles", w:2},
+  {re:/\ban (unique|university|user|European|one|useful)\b/i, to:"a $1", why:"These start with a “y” sound, so they take “a”.", tag:"articles", w:2},
+  {re:/\bopen the (light|lights|aircon|fan|TV)\b/i, to:"turn on the $1", why:"Appliances are turned on, not opened — this reads as a local usage internationally.", tag:"direct translation", w:2},
+  {re:/\bclose the (light|lights|aircon|fan|TV)\b/i, to:"turn off the $1", why:"Appliances are turned off.", tag:"direct translation", w:2},
+  {re:/\bfill up (a|the|this) form\b/i, to:"fill out $1 form", why:"“Fill out a form” internationally; “fill up” is for fuel tanks.", tag:"direct translation", w:2},
+  {re:/\b(wait|hold on) for a while\b/i, to:"$1 a moment", why:"Internationally “for a while” suggests a long time, so it reads oddly for a short wait.", tag:"direct translation", w:2},
+  {re:/\blast last (week|month|year)\b/i, to:"the $1 before last", why:"English repeats nothing here — it says “the week before last”.", tag:"direct translation", w:2},
+  {re:/\baccording to me\b/i, to:"in my opinion", why:"“According to” is used for other sources, not yourself.", tag:"word choice", w:2},
+  {re:/\bI'm boring\b/i, to:"I'm bored", why:"“-ing” describes the thing; “-ed” describes you.", tag:"word choice", w:3},
+  {re:/\bvery much (interested|happy|glad|excited)\b/i, to:"very $1", why:"“Very much” before an adjective sounds dated — “very” alone is natural.", tag:"unnatural phrasing", w:1},
+  {re:/\b(furthermore|moreover|henceforth|thereafter|aforementioned|hereby|utilize|commence)\b/i, fn:(m)=>({furthermore:"on top of that", moreover:"and", henceforth:"from now on", thereafter:"after that", aforementioned:"that", hereby:"", utilize:"use", commence:"start"})[m[1].toLowerCase()]||m[1], why:"This is essay register. In speech and everyday writing, natural connectors sound more fluent and more confident.", tag:"too formal", w:1},
+  {re:/\bkindly (do the needful|revert)\b/i, to:"please", why:"Reads as formulaic office English internationally.", tag:"too formal", w:1},
+  {re:/\bmake a follow up\b/i, to:"follow up", why:"“Follow up” works as a verb on its own.", tag:"collocations", w:2}
+];
+
+function splitSents(t){
+  return String(t||"").replace(/\s+/g," ").split(/(?<=[.!?])\s+|\s*\n+\s*/).map(x=>x.trim()).filter(x=>x.length>1);
+}
+function applyRule(sn, r){
+  const g = new RegExp(r.re.source, r.re.flags.includes("g")? r.re.flags : r.re.flags+"g");
+  let out = r.fn ? sn.replace(g, (...a)=> r.fn(a)) : sn.replace(g, r.to);
+  /* a fix at the start of a sentence must not eat the capital letter */
+  if(/^[A-Z]/.test(sn) && /^[a-z]/.test(out)) out = out.charAt(0).toUpperCase()+out.slice(1);
+  return out.replace(/\s+([.,!?])/g, "$1").replace(/\s{2,}/g," ").trim();
+}
+function scanText(text, opts){
+  const o = opts||{};
+  const sents = splitSents(text);
+  const findings = [], seen = new Set();
+  sents.forEach(sn=>{
+    RULES.forEach(r=>{
+      if(!r.re.test(sn)) return;
+      const better = applyRule(sn, r);
+      if(better === sn) return;
+      const k = sn+"|"+r.why;
+      if(seen.has(k)) return;
+      seen.add(k);
+      findings.push({mine:sn, better, why:r.why, tag:r.tag, w:r.w});
+    });
+  });
+  /* structural checks */
+  const long = sents.filter(s=>words(s)>42);
+  if(long.length){
+    findings.push({mine:long[0].slice(0,180), better:"Split it: one idea per sentence, then join the two with “so”, “but” or “which”.",
+      why:"Past roughly 40 words a sentence stops sounding complex and starts sounding unedited. C1–C2 writing varies length instead.", tag:"sentence variety", w:2});
+  }
+  const lens = sents.map(words);
+  if(sents.length>=4){
+    const avg = lens.reduce((a,b)=>a+b,0)/lens.length;
+    const spread = Math.max(...lens)-Math.min(...lens);
+    if(spread<=5 && avg>8) findings.push({mine:"Your sentences are all about "+Math.round(avg)+" words long.",
+      better:"Put one short sentence — five words or fewer — next to a long one.",
+      why:"Rhythm comes from contrast in sentence length. Uniform length reads flat even when every sentence is correct.", tag:"sentence variety", w:1});
+  }
+  const ws = (String(text).toLowerCase().match(/[a-z']+/g)||[]);
+  const stop = new Set(["the","a","an","and","or","but","so","because","i","my","me","you","it","is","am","are","was","were","be","been","to","of","in","on","for","that","this","with","as","at","have","has","had","do","did","not","they","we","he","she","his","her","their","there","very","too","also","then","when","if","will","would","can","could","just","really","like","about","more","up","out","one","some","any","them","what","which","from","by","all","get","got"]);
+  const freq = {};
+  ws.forEach(w=>{ if(w.length>3 && !stop.has(w)) freq[w]=(freq[w]||0)+1; });
+  const top = Object.entries(freq).sort((a,b)=>b[1]-a[1])[0];
+  if(top && top[1]>=4 && ws.length>40){
+    findings.push({mine:"“"+top[0]+"” appears "+top[1]+" times.",
+      better:"Replace two of them with a synonym, a pronoun, or drop the clause entirely.",
+      why:"Lexical repetition is the clearest ceiling on a B2 text. Range is what moves it to C1.", tag:"repetition", w:2});
+  }
+  const linkers = LINKWORDS.filter(w=> new RegExp("\\b"+w.replace(/ /g,"\\s")+"\\b","i").test(text));
+  if(o.mode!=="sentence" && ws.length>50 && linkers.length<2){
+    findings.push({mine:"Almost no linking between your ideas.",
+      better:"Join two of your sentences with “so”, “but”, “even though” or “that's why”.",
+      why:"Cohesion is scored separately from grammar. Ideas that sit side by side read as a list, not an argument.", tag:"linking words", w:2});
+  }
+  findings.sort((a,b)=> b.w-a.w);
+  return {findings, sents, lens, ws, linkers,
+    ttr: ws.length? new Set(ws).size/ws.length : 0};
+}
+function groupFindings(findings){
+  const by = new Map();
+  findings.forEach(f=>{
+    if(!by.has(f.mine)) by.set(f.mine, {mine:f.mine, better:f.mine, whys:[], w:0});
+    const g = by.get(f.mine);
+    const r = RULES.find(r=>r.why===f.why);
+    g.better = r ? applyRule(g.better, r) : f.better;
+    if(!r) g.better = f.better;
+    if(!g.whys.includes(f.why)) g.whys.push(f.why);
+    g.w = Math.max(g.w, f.w);
+  });
+  return [...by.values()].sort((a,b)=>b.w-a.w).map(g=>({
+    mine:g.mine, better:g.better, why:g.whys.slice(0,2).join(" ")
+  }));
+}
+function scoreText(sc, ph, n){
+  const hard = sc.findings.filter(f=>f.w===3).length;
+  const soft = sc.findings.filter(f=>f.w===2).length;
+  const density = sc.ws.length? (hard*2+soft)/(sc.ws.length/50) : 0;
+  const cl = v=> Math.max(1, Math.min(10, Math.round(v)));
+  const lens = sc.lens.length? sc.lens : [1];
+  const avg = lens.reduce((a,b)=>a+b,0)/lens.length;
+  const spread = Math.max(...lens)-Math.min(...lens);
+  return {
+    grammar: cl(10 - hard*1.6 - soft*0.6),
+    vocabulary: cl(3 + (sc.ws.length<60? sc.ttr*7 : sc.ttr*11) - (sc.findings.some(f=>f.tag==="repetition")?2:0) - (hard>2?2:0)),
+    structure: cl(4 + Math.min(3, spread/6) + (avg>11?2:1)),
+    linking: cl(3 + sc.linkers.length*1.4),
+    coherence: cl(5 + (sc.sents.length>=4?2:0) + (sc.linkers.length>=3?2:0) - (density>2?2:0)),
+    naturalness: cl(9 - sc.findings.filter(f=>["unnatural phrasing","direct translation","collocations","too formal"].includes(f.tag)).length*1.3 - hard*0.8)
+  };
+}
+function bandFrom(scores, wordsN){
+  const v = Object.values(scores), m = v.reduce((a,b)=>a+b,0)/v.length;
+  if(m>=9 && scores.grammar>=9 && wordsN>=150) return "C2";
+  if(m>=7.8 && scores.grammar>=8) return "C1";
+  if(m>=6.2) return "B2";
+  if(m>=4.5) return "B1";
+  return "A2";
+}
+const FEEL = {A2:"translated", B1:"understandable but unnatural", B2:"conversational", C1:"natural", C2:"highly proficient"};
+function praiseFor(sc, text, scores){
+  const good = [];
+  const clean = !scores || scores.grammar>=6;
+  if(/\b(have|has|had)\s+(been\s+)?[a-z]+(ed|en)\b/i.test(text)) good.push("You handled the perfect aspect correctly — that's a structure most learners avoid entirely.");
+  if(/\bif\s+.*\b(would|had|were)\b/i.test(text)) good.push("You built a conditional and kept it consistent, which is a real C1 signal.");
+  if(clean && sc.linkers.length>=3) good.push("Your ideas are linked, not just listed — you used "+sc.linkers.slice(0,3).join(", ")+" to carry the argument.");
+  if(clean && sc.ttr>0.6) good.push("Your word choice doesn't repeat itself — the lexical range here is real.");
+  if(clean && sc.lens.length>=4 && (Math.max(...sc.lens)-Math.min(...sc.lens))>12) good.push("You varied sentence length deliberately, which is what gives writing rhythm.");
+  if(!good.length) good.push(clean
+    ? "You finished the task in English without breaking down mid-thought — that's the base everything else is built on."
+    : "You got the whole idea across and stayed on the task. The grammar below is fixable; the willingness to produce a full answer is the part that isn't teachable.");
+  return good.slice(0,2).join(" ");
+}
+function stealFor(tag){
+  const pool = (WEAKBANK[tag] || WEAKBANK.__general);
+  return pool.slice(0,3).map(c=>c.phrase);
+}
+function weakestTag(sc){
+  const t = {};
+  sc.findings.forEach(f=> t[f.tag]=(t[f.tag]||0)+f.w);
+  Object.entries(S.errors||{}).forEach(([k,v])=> t[k]=(t[k]||0)+v*0.5);
+  const top = Object.entries(t).sort((a,b)=>b[1]-a[1])[0];
+  return top? top[0] : "linking words";
+}
+const PRIORITY = {
+  "articles":"Articles. Before every singular noun, ask: is this one specific thing (the), one of many (a/an), or a general idea (nothing)?",
+  "prepositions":"Prepositions in fixed pairs. Learn them attached to the verb — “depend on”, “interested in” — never as separate words.",
+  "verb tense":"Tense consistency. Pick your time frame at the start of a paragraph and keep every verb inside it.",
+  "subject–verb agreement":"Agreement. Find the real subject, then the verb — the words in between don't change it.",
+  "word order":"Word order. English is subject–verb–object and won't stretch; move whole chunks rather than single words.",
+  "plurals":"Countability. Decide whether the noun can be counted before you reach for the “s”.",
+  "linking words":"Linking. Join your ideas with spoken connectors — “so”, “but”, “even though”, “that's why”.",
+  "collocations":"Collocations. Learn which words travel together, because grammar alone won't tell you.",
+  "word choice":"Precision. When two words are close, choose the narrower one.",
+  "unnatural phrasing":"Naturalness. Say the thought the way you'd say it out loud, then tidy the grammar.",
+  "repetition":"Range. Once a content word appears twice, reach for a different one.",
+  "sentence variety":"Rhythm. Put one short sentence beside a long one.",
+  "direct translation":"Translation habits. When a phrase feels locally normal, check whether it reads the same internationally.",
+  "too formal":"Register. Formal connectors in casual contexts read as distance, not skill.",
+  "fragments":"Complete clauses. Every sentence needs a subject and a finite verb.",
+  "hesitation":"Keep going. Finish the sentence you started, even imperfectly, rather than restarting it.",
+  "pronouns":"Pronoun reference. Make sure every “it” and “they” has one obvious owner."
+};
+const DIM_TAG = {grammar:"verb tense", vocabulary:"repetition", structure:"sentence variety",
+  linking:"linking words", coherence:"linking words", naturalness:"unnatural phrasing"};
+function lowestTag(scores){
+  const e = Object.entries(scores).sort((a,b)=>a[1]-b[1])[0];
+  return (e && DIM_TAG[e[0]]) || "linking words";
+}
+function localWriting(text, topic, ph){
+  const sc = scanText(text);
+  const scores = scoreText(sc, ph, words(text));
+  const band = bandFrom(scores, words(text));
+  const tag = sc.findings.length ? weakestTag(sc) : lowestTag(scores);
+  const corr = groupFindings(sc.findings).slice(0,4);
+  return {
+    band, fluencyFeel: FEEL[band], praise: praiseFor(sc, text, scores),
+    corrections: corr, scores,
+    errorTags: [...new Set(sc.findings.map(f=>f.tag))].slice(0,5),
+    steal: stealFor(tag),
+    priority: PRIORITY[tag] || PRIORITY["linking words"],
+    next: "Rewrite your two weakest sentences using "+stealFor(tag)[0]+" — same idea, better machinery."
+  };
+}
+function localSpeaking(text, secs, wpm, fill, topic, ph){
+  const sc = scanText(text);
+  const scores = scoreText(sc, ph, words(text));
+  const band = bandFrom(scores, words(text));
+  const tag = sc.findings.length ? weakestTag(sc) : lowestTag(scores);
+  const flow = wpm<70 ? "Slow and careful — you were assembling sentences while speaking rather than running them off."
+    : wpm>160 ? "Fast, which is good for confidence, but speed is hiding some of your endings."
+    : "A steady, conversational pace — close to how a fluent speaker actually talks.";
+  const well = [];
+  if(fill<=3) well.push("You kept fillers down to "+fill+" — that alone makes you sound more certain.");
+  if(words(text)/Math.max(1,sc.sents.length)>9) well.push("Your sentences ran to a real length instead of stopping after five words.");
+  if(sc.linkers.length) well.push("You linked ideas as you spoke using "+sc.linkers.slice(0,3).join(", ")+".");
+  if(!well.length) well.push("You spoke for the full time without switching out of English.");
+  const hold = fill>8 ? "Filler words. You used "+fill+"; each one is a place where you were buying time you don't actually need."
+    : sc.findings.length ? "The same pattern keeps surfacing: "+tag+". It's not slowing you down — it's what marks the speech as a learner's."
+    : "Nothing structural. Your next gain is precision: the exact word instead of the nearby one.";
+  const top3 = [];
+  if(fill>5) top3.push("Replace fillers with a silent pause. Silence sounds like thinking; “uh” sounds like searching.");
+  if(sc.findings[0]) top3.push("Fix the "+sc.findings[0].tag+" pattern: "+sc.findings[0].why);
+  if(sc.linkers.length<2) top3.push("Chain your ideas out loud with “so”, “but”, “the thing is” instead of stopping between them.");
+  if(wpm<70) top3.push("Say the whole sentence even if the middle is wrong. Restarting costs more than the error does.");
+  if(!top3.length) top3.push("Push the topic somewhere harder — argue a position instead of describing one.");
+  const weak = groupFindings(sc.findings)[0];
+  return {
+    band, fluency: flow, wellDone: well.slice(0,2), holdingBack: hold, top3: top3.slice(0,3),
+    rewrite: weak && weak.better && !weak.better.startsWith("Split") ? {mine:weak.mine, better:weak.better} : null,
+    errorTags: [...new Set(sc.findings.map(f=>f.tag))].slice(0,4),
+    next: "Speak for 60 seconds on the same topic, but open with "+stealFor(tag)[0]+" and use it properly."
+  };
+}
+function localSentence(txt, c){
+  const sc = scanText(txt, {mode:"sentence"});
+  const hard = sc.findings.filter(f=>f.w>=3);
+  const soft = sc.findings.filter(f=>f.w===2);
+  let fixed = txt;
+  sc.findings.forEach(f=>{ if(f.mine===txt) fixed = applyRule(fixed, RULES.find(r=>r.why===f.why)||{re:/$^/,to:""}); });
+  const verdict = hard.length? "incorrect" : (soft.length? "awkward" : "correct");
+  const elevated = (c.v && c.v.length) ? txt.replace(new RegExp(phraseParts(c.p)[0], "i"), phraseParts(c.p)[0]) : txt;
+  return {
+    verdict,
+    fixed: fixed!==txt? fixed : txt,
+    elevated: (c.v&&c.v[0]) ? "A step up in register: "+c.v[0]+" — try the same idea with that version." : "",
+    why: sc.findings.slice(0,2).map(f=>f.why),
+    praise: verdict==="correct" ? "You put the chunk in the right slot in the sentence — that's the part learners usually get wrong, not the words themselves." : "",
+    errorTags: [...new Set(sc.findings.map(f=>f.tag))].slice(0,3),
+    next: "Now use “"+c.p+"” again about something completely different — work, not study."
+  };
+}
+
+/* ---------- weak-spot phrase generation ---------- */
+function W(phrase, meaning, example, v, reg, cef, mistake, cat, spoken){
+  return {phrase, meaning, example, variations:v||[], register:reg||"Neutral", naturalness:"Very natural",
+    cefr:cef||"B2", mistake:mistake||"", category:cat||"Weak spot", spoken:spoken||""};
+}
+const WEAKBANK = {
+  "prepositions":[
+    W("I'm interested in","how you say what attracts you","I'm interested in how the team actually works, not just the job title.",["I've always been interested in…","I'm interested in doing…"],"Neutral","B1","“interested on” / “interested about”","Prepositions"),
+    W("I'm responsible for","how you describe what you own at work","I'm responsible for handling claims from start to finish.",["I'm in charge of…","It's my job to…"],"Professional","B1","“responsible of”","Prepositions"),
+    W("It depends on","how you avoid committing to one answer","It depends on how much notice they give me.",["That depends.","It depends whether…"],"Neutral","B1","“depends to” / “depends of”","Prepositions"),
+    W("I'm looking forward to","how you close a message warmly","I'm looking forward to hearing what you think.",["I'm looking forward to it.","Looking forward to working with you."],"Professional","B1","“looking forward to hear”","Prepositions","looking forward to → lookin' forward to")
+  ],
+  "articles":[
+    W("It's the kind of thing that","how you describe a type rather than one case","It's the kind of thing that only shows up under pressure.",["It's the sort of thing that…","That's the kind of problem that…"],"Neutral","B2","dropping “the” before “kind of”","Articles"),
+    W("There's a chance that","how you talk about possibility","There's a chance that the shipment clears tomorrow.",["There's a good chance…","There's a small chance…"],"Neutral","B1","“there is chance”","Articles"),
+    W("as a rule","how you describe your usual behaviour","As a rule, I don't answer messages after nine.",["Generally speaking…","As a general rule…"],"Neutral","B2","“as rule”","Articles")
+  ],
+  "verb tense":[
+    W("I've been meaning to","how you flag something you intended for a while","I've been meaning to ask you about the new process.",["I keep meaning to…","I've been planning to…"],"Neutral","B2","“I am meaning to”","Verb patterns","I've been → I've bin"),
+    W("I ended up","how you report an unplanned result","I ended up staying two hours later than I'd planned.",["I ended up having to…","It ended up being…"],"Casual","B2","“I ended to”","Verb patterns"),
+    W("I was supposed to","how you say the plan didn't happen","I was supposed to file it yesterday, but the system was down.",["It was supposed to…","We were supposed to…"],"Neutral","B1","“I supposed to”","Verb patterns","supposed to → s'posed to"),
+    W("I should've","how you express regret compactly","I should've asked before I sent it.",["I shouldn't have…","I could've…"],"Casual","B2","“I should have to”","Verb patterns","should've → shoulda")
+  ],
+  "subject–verb agreement":[
+    W("Each of them has","how you keep agreement with “each”","Each of them has a different deadline.",["Every one of them is…","Neither of them is…"],"Neutral","B2","“each of them have”","Agreement"),
+    W("There are a few things","how you open a list of points","There are a few things I'd want to check first.",["There's one thing…","There are two reasons…"],"Neutral","B1","“there is a few things”","Agreement")
+  ],
+  "linking words":[
+    W("The thing is","how you introduce the real point","The thing is, nobody told the warehouse.",["The point is…","Here's the thing…"],"Casual","B2","using it in formal writing","Linking"),
+    W("That's why","how you attach a consequence","The invoice was wrong, and that's why the claim bounced.",["Which is why…","That's exactly why…"],"Neutral","B1","“that's the why”","Linking"),
+    W("On top of that","how you add a second reason","It arrived late, and on top of that, two items were missing.",["Besides that…","And another thing…"],"Casual","B2","“on the top of that”","Linking"),
+    W("At the same time","how you hold two true things together","I want the promotion. At the same time, I know what it costs.",["Then again…","That said…"],"Neutral","B2","using “meanwhile” for contrast","Linking")
+  ],
+  "collocations":[
+    W("make a decision","how English pairs “make” with decision","We'll make a decision by Friday.",["come to a decision","reach a decision"],"Professional","B1","“do a decision”","Collocation"),
+    W("take responsibility for","how you own an outcome","I'll take responsibility for the part I got wrong.",["take the blame for","own up to"],"Professional","B2","“take responsible”","Collocation"),
+    W("pay attention to","how you direct focus","Pay attention to the wording, not the format.",["keep an eye on","watch out for"],"Neutral","B1","“pay attention on”","Collocation")
+  ],
+  "word choice":[
+    W("I'd rather","how you state a preference without argument","I'd rather send it tomorrow with everything checked.",["I'd prefer to…","If it's up to me…"],"Neutral","B1","“I rather to”","Precision","I'd rather → I'd ratherr"),
+    W("It's not that…, it's just that…","how you correct an assumption gently","It's not that I disagree, it's just that the timing is wrong.",["It's less about… and more about…"],"Neutral","B2","dropping the second half","Precision"),
+    W("to be fair","how you concede a point before continuing","To be fair, they did warn us.",["In fairness…","Admittedly…"],"Casual","C1","using it to start every sentence","Precision")
+  ],
+  "unnatural phrasing":[
+    W("as far as I know","how you hedge without sounding unsure of yourself","As far as I know, the claim is still open.",["From what I understand…","Last I heard…"],"Neutral","B2","“as far as I knew”","Naturalness"),
+    W("Come to think of it","how you introduce something that just occurred to you","Come to think of it, that's the second time this week.",["Actually, now that you mention it…"],"Casual","B2","using it in formal writing","Naturalness"),
+    W("I can see why","how you acknowledge someone's position","I can see why they'd be annoyed.",["I get why…","It makes sense that…"],"Neutral","B2","“I can see the why”","Naturalness")
+  ],
+  "too formal":[
+    W("so","the connector fluent speakers actually use for results","The file was corrupted, so I rebuilt it.",["which meant…","and that's why…"],"Casual","A2","reaching for “therefore” in speech","Register"),
+    W("anyway","how you steer back to the point","Anyway, what did you decide?",["Where were we?","Back to the point…"],"Casual","B2","using it to dismiss someone","Register"),
+    W("by the way","how you add something off-topic","By the way, your invoice came through.",["Oh, and…","One more thing…"],"Casual","B1","overusing it mid-argument","Register","by the way → b'the way")
+  ],
+  "repetition":[
+    W("along those lines","how you refer back without repeating","We could do something along those lines.",["something like that","in that direction"],"Neutral","C1","“along that line”","Range"),
+    W("the same goes for","how you extend a point to another case","The same goes for the returns process.",["That applies to… too","Likewise with…"],"Neutral","B2","“the same go for”","Range")
+  ],
+  "sentence variety":[
+    W("What surprised me was","a cleft opening that reorders emphasis","What surprised me was how fast they replied.",["What I noticed was…","The part that worried me was…"],"Neutral","C1","“What surprised me is that was…”","Structure"),
+    W("Having said that","how you pivot mid-argument","Having said that, I'd still take the offer.",["That said…","Even so…"],"Professional","C1","using it twice in a row","Structure")
+  ],
+  "direct translation":[
+    W("hold on a second","how English asks for a short wait","Hold on a second, let me check the file.",["Give me a moment.","Bear with me."],"Casual","B1","“wait for a while”","International English"),
+    W("fill out the form","the international phrasing","Fill out the form and send it back scanned.",["complete the form","submit the form"],"Professional","B1","“fill up the form”","International English"),
+    W("turn on the light","the verb English uses for appliances","Could you turn on the light?",["switch on the light"],"Casual","A2","“open the light”","International English")
+  ],
+  "hesitation":[
+    W("Let me think for a second","how you buy time out loud without “uh”","Let me think for a second — there were two reasons.",["Give me a second to put that together."],"Neutral","B1","filling the gap with “uh” instead","Fluency"),
+    W("How can I put this","how fluent speakers stall gracefully","How can I put this — it wasn't really a refusal.",["How do I say this…","Let me rephrase that."],"Casual","B2","saying it too often","Fluency"),
+    W("What I mean is","how you repair a sentence mid-flow","What I mean is, the process works, the timing doesn't.",["Or rather…","Let me put it another way."],"Neutral","B1","restarting from zero instead","Fluency")
+  ],
+  "pronouns":[
+    W("the one that","how you point precisely instead of saying “it”","The one that came back wasn't the one I sent.",["the version that…","the copy I sent"],"Neutral","B2","overusing bare “it”","Reference")
+  ],
+  "fragments":[
+    W("The reason I decided to","a full-clause opener that forces a complete sentence","The reason I decided to stay was the team.",["The reason for that is…","That's mainly because…"],"Neutral","B2","stopping after “Because…”","Structure")
+  ],
+  "__general":[
+    W("The way I see it","how you frame an opinion as yours","The way I see it, the process is the problem, not the people.",["Personally, I feel like…","From my perspective…"],"Neutral","B2","“the way I see”","Opinions"),
+    W("I tend to think that","how you hold an opinion without overclaiming","I tend to think most delays start upstream.",["I'd say…","My sense is that…"],"Professional","C1","“I tend to thinking”","Opinions"),
+    W("I'm not entirely convinced that","how you disagree without confrontation","I'm not entirely convinced that the new system is faster.",["I'm not sure I agree that…","I have my doubts about…"],"Professional","C1","“I'm not entirely convince”","Opinions"),
+    W("What happened was","how you open a story mid-flow","What happened was, the courier left it with a neighbour.",["So basically…","Here's what happened."],"Casual","B1","“What happen was”","Storytelling"),
+    W("It turned out that","how you deliver the twist","It turned out that the file had never been sent.",["As it turned out…","Turns out…"],"Neutral","B2","“It turned out to be that”","Storytelling","turned out → turn'dout"),
+    W("in the end","how you land the conclusion of a story","In the end, I just called them directly.",["eventually","so finally"],"Casual","B1","confusing it with “at the end”","Storytelling"),
+    W("It's basically","how you paraphrase a word you don't have","It's basically a form you sign before delivery.",["It's a kind of…","It's the thing you use to…"],"Casual","B1","“It's basic”","Paraphrasing"),
+    W("I know what you mean","how you show you're actually listening","I know what you mean — the same thing happened to us.",["I get that.","That makes sense."],"Casual","B1","“I know what you meant”","Conversation"),
+    W("That's a good point","how you concede and keep the conversation moving","That's a good point — I hadn't thought about the cost.",["Fair point.","True."],"Neutral","B1","overusing it as filler","Conversation"),
+    W("If I remember correctly","how you cite your own memory with a hedge","If I remember correctly, that account closed in March.",["If I'm not mistaken…","As far as I recall…"],"Professional","B2","“if I remember correct”","Uncertainty"),
+    W("The main reason is","how you front your strongest argument","The main reason is that nobody owns the handover.",["That's mainly because…","Primarily because…"],"Professional","B2","“the main reason because”","Explaining"),
+    W("The way it works is","how you explain a process clearly","The way it works is, you log the claim first, then attach the photos.",["Basically what happens is…","Here's how it works."],"Neutral","B2","“the way it works that”","Explaining")
+  ]
+};
+function localCards(n){
+  const have = new Set(Object.values(S.cards).map(c=>c.p.toLowerCase()));
+  const weak = Object.entries(S.errors||{}).sort((a,b)=>b[1]-a[1]).map(e=>e[0]);
+  const order = [];
+  weak.forEach(t=> (WEAKBANK[t]||[]).forEach(c=> order.push(c)));
+  WEAKBANK.__general.forEach(c=> order.push(c));
+  Object.keys(WEAKBANK).forEach(k=>{ if(k!=="__general") WEAKBANK[k].forEach(c=> order.push(c)); });
+  const out = [];
+  for(const c of order){
+    if(out.length>=n) break;
+    if(have.has(c.phrase.toLowerCase())) continue;
+    if(out.some(x=>x.phrase===c.phrase)) continue;
+    out.push(c);
+  }
+  return out;
+}
+
+/* ---------- local profile + 30-day assessment ---------- */
+function localProfile(){
+  const cards = Object.values(S.cards);
+  const errs = Object.entries(S.errors||{}).sort((a,b)=>b[1]-a[1]);
+  const bands = S.writing.slice(-5).map(w=>w.band).filter(Boolean);
+  const spon = cards.filter(c=>c.use&&c.use.spon>0).map(c=>c.p);
+  const passive = cards.filter(c=>c.lvl>=2&&c.lvl<5).map(c=>c.p);
+  const active = cards.filter(c=>c.lvl>=5).map(c=>c.p);
+  const wpm = S.speaking.slice(-3).map(s=>s.wpm).filter(Boolean);
+  const fills = S.speaking.slice(-3).map(s=>s.fill).filter(x=>x!=null);
+  const avg = a=> a.length? Math.round(a.reduce((x,y)=>x+y,0)/a.length) : null;
+  const ev = [];
+  if(bands.length) ev.push("your last "+bands.length+" writing tasks read at "+[...new Set(bands)].join("/"));
+  if(wpm.length) ev.push("you speak at about "+avg(wpm)+" words a minute");
+  if(spon.length) ev.push(spon.length+" phrase"+(spon.length===1?"":"s")+" have come out spontaneously");
+  return {
+    cefr: S.level,
+    cefrWhy: ev.length? "Based on produced work: "+ev.join("; ")+"." : "Not enough produced work yet — do two writing tasks and one speaking task and this estimate becomes real.",
+    strengths: [
+      active.length? "You genuinely own "+active.length+" phrases — they show up in your own sentences, not just on cards." : "You're building the bank; nothing is owned yet.",
+      fills.length && avg(fills)<=4 ? "Low filler use when speaking ("+avg(fills)+" on average)." : "You keep going in English rather than switching out."
+    ],
+    weaknesses: errs.slice(0,3).map(e=> e[0]+" — "+e[1]+" logged instance"+(e[1]===1?"":"s")+"."),
+    recurringErrors: errs.filter(e=>e[1]>=3).map(e=>e[0]),
+    recognisedNotUsed: passive.slice(0,10),
+    usedNaturally: spon.slice(0,10),
+    misused: [],
+    understoodNotAutomatic: cards.filter(c=>c.lvl>=3&&c.lvl<6).map(c=>c.p).slice(0,8),
+    fluencyBlockers: [
+      errs[0]? "The "+errs[0][0]+" pattern keeps reappearing; it costs you accuracy under pressure." : "No single blocker stands out yet.",
+      fills.length && avg(fills)>8 ? "Filler words — about "+avg(fills)+" per speaking task." : "Reaching for known phrases in time: "+passive.length+" are still recognition-only."
+    ],
+    listening: S.daily&&S.daily.listen&&S.daily.listen.done? "You're completing the daily listening set — keep shadowing rather than just watching." : "Listening is being skipped. Reduced speech is trained by shadowing, not by exposure alone.",
+    pronunciation: "Not measurable in this app — the tongue twister and shadowing drills are your instrument for it.",
+    conversational: S.convo&&S.convo.log&&S.convo.log.length? "You're producing turns; the next gain is asking follow-up questions instead of only answering." : "Not enough conversation data yet.",
+    nextThree: [
+      PRIORITY[errs[0]&&errs[0][0]] || PRIORITY["linking words"],
+      "Force "+(passive[0]||"a recognition-only phrase")+" into your writing today.",
+      "Add one minute to your speaking limit and don't stop early."
+    ],
+    d: todayKey()
+  };
+}
+function localAssess(){
+  const p = localProfile();
+  const early = S.writing.slice(0,2), late = S.writing.slice(-2);
+  const sc = w=> w&&w.scores? Object.values(w.scores).reduce((a,b)=>a+b,0)/Object.values(w.scores).length : null;
+  const e0 = sc(early[0]), l0 = sc(late[late.length-1]);
+  const moved = (e0!=null && l0!=null) ? (l0-e0) : null;
+  const errs = Object.entries(S.errors||{}).sort((a,b)=>b[1]-a[1]);
+  const ph = phase();
+  return {
+    level: S.level,
+    improved: [
+      moved!=null ? "Overall writing score moved from "+e0.toFixed(1)+" to "+l0.toFixed(1)+" across this cycle." : "Not enough early writing to compare — start the next cycle with a task on day 1.",
+      "Phrases now used in your own sentences: "+Object.values(S.cards).filter(c=>c.lvl>=5).length+"."
+    ],
+    stillWeak: errs.slice(0,3).map(e=>e[0]+" ("+e[1]+")"),
+    recurringMistakes: errs.filter(e=>e[1]>=3).map(e=>e[0]),
+    newlyActive: Object.values(S.cards).filter(c=>c.use&&c.use.spon>0).map(c=>c.p).slice(0,8),
+    stillPassive: Object.values(S.cards).filter(c=>c.lvl>=2&&c.lvl<5).map(c=>c.p).slice(0,8),
+    fluencyBlockers: p.fluencyBlockers,
+    nextPriority: p.nextThree,
+    c2Gap: "C2 isn't more exercises. It's producing nuanced, precise English under time pressure on unfamiliar topics — and you haven't yet been tested on topics you didn't prepare for. That's what the next cycle turns up.",
+    nextCycle: {
+      theme: errs[0]? "Closing the "+errs[0][0]+" gap while raising spontaneity" : "Spontaneity and precision",
+      days1_7: "Rebuild automaticity: short speaking, tight writing, heavy Anki on the weak-spot phrases added this cycle.",
+      days8_14: "Storytelling and reasons — every writing task must carry a cause and a consequence.",
+      days15_21: "Paraphrasing under pressure: no preparation time, no visible target phrases.",
+      days22_30: "Argument and register: defend a position, then say the same thing casually and formally.",
+      harder: "Target phrases stop being shown before the task, and the speaking timer goes up one step."
+    },
+    summary: "You've produced real English this cycle rather than collecting it. The measurable gap is "+(errs[0]?errs[0][0]:"spontaneity")+", and it closes by using the phrases, not by rereading them. Next cycle removes the support earlier."
+  };
+}
+
 /* ============================================================
    Part 2: daily set, routing, phrase memory, writing
    ============================================================ */
@@ -751,6 +1187,7 @@ function newDaily(){
     speaking:{ topic: pickDaily(BANK.speak, S.day+3, prev.speaking&&prev.speaking.topic), secs: ph.secs[S.day%2], hidden, done:false, fb:null, text:"" },
     listen:{ watch: pickDaily(BANK.watch, S.day, prev.listen&&prev.listen.watch), pod: pickDaily(BANK.pods, S.day, prev.listen&&prev.listen.pod), tt: pickDaily(BANK.tt, S.day, prev.listen&&prev.listen.tt), done:false, extra:null },
     talk:{done:false},
+    mind:{done:false, n: mindTestSize(), progress:0, correct:0},
     any:false
   };
   S.counts = {reviewed:0, recalled:0, used:0};
@@ -763,6 +1200,7 @@ function ensureDaily(){
     if(S.day>30){ S.day=1; S.cycle++; S.pendingAssessment=true; }
   }
   newDaily();
+  S.convo.taughtToday = false; S.convo.mc = null; S.convo.turns = []; S.convo.userTurns = 0;
   return true;
 }
 function touchDay(){
@@ -779,7 +1217,8 @@ function tasksDone(){
   const d = S.daily||{};
   return {
     cards: !!(d.cards&&d.cards.done), write:!!(d.writing&&d.writing.done),
-    speak:!!(d.speaking&&d.speaking.done), listen:!!(d.listen&&d.listen.done), talk:!!(d.talk&&d.talk.done)
+    speak:!!(d.speaking&&d.speaking.done), listen:!!(d.listen&&d.listen.done), talk:!!(d.talk&&d.talk.done),
+    mind: !!(d.mind&&d.mind.done)
   };
 }
 
@@ -793,7 +1232,7 @@ function renderMeta(){
   const map = {cards:"cards", write:"write", speak:"speak", talk:"talk"};
   document.querySelectorAll(".tab").forEach(b=>{
     const v = b.dataset.v;
-    const pend = (v==="cards" && !t.cards) || (v==="write" && !t.write) || (v==="speak" && (!t.speak||!t.listen)) || (v==="talk" && !t.talk);
+    const pend = (v==="cards" && !t.cards) || (v==="write" && !t.write) || (v==="speak" && !t.speak) || (v==="listen" && !t.listen) || (v==="talk" && !t.talk) || (v==="mind" && !t.mind);
     b.classList.toggle("pending", !!pend && v!=="prog");
   });
   renderStrip();
@@ -801,36 +1240,67 @@ function renderMeta(){
 function renderStrip(){
   const t = tasksDone(), d = S.daily;
   const n = Object.values(t).filter(Boolean).length;
+  const TOTAL = Object.keys(t).length;
   const host = $("#daily-strip");
   host.innerHTML = "";
   const c = el("div","card tight");
+
+  /* the daily task always belongs to the column that is open */
+  const CTX = {
+    cards:{key:"cards", title:"Today's Anki review", chip:"Anki",
+      line: ()=> (queueLeft()||0)+" phrase"+((queueLeft()||0)===1?"":"s")+" left in today's queue"},
+    write:{key:"write", title:"Today's writing practice", chip:"Writing",
+      line: ()=> (S.daily.writing.topic||"").split(/(?<=[.!?])\s/)[0]},
+    speak:{key:"speak", title:"Today's speaking practice", chip:"Speaking",
+      line: ()=> Math.round(S.daily.speaking.secs/60*10)/10+" min · "+(S.daily.speaking.topic||"").split(/(?<=[.!?])\s/)[0]},
+    listen:{key:"listen", title:"Today's listening practice", chip:"Listening",
+      line: ()=> (S.daily.listen.watch&&S.daily.listen.watch[0])||"watch, listen, tongue twister"},
+    talk:{key:"talk", title:"Today's conversation", chip:"AI conversation",
+      line: ()=> "stage "+phase().stage+" · "+(S.convo.mode==="free"?"natural conversation":"guided practice")},
+    mind:{key:"mind", title:"Today's mind test", chip:"Mind test",
+      line: ()=> (S.daily.mind.n||3)+" challenge"+((S.daily.mind.n||3)===1?"":"s")+" today · "+(S.daily.mind.progress||0)+" done"},
+    prog:{key:null, title:"Today's practice", chip:null, line: ()=> n+" of "+TOTAL+" finished today"}
+  };
+  const ctx = CTX[CUR] || CTX.prog;
+  const done = ctx.key ? t[ctx.key] : (n===TOTAL);
+
   const hd = el("div","hd");
-  hd.appendChild(el("h2",null, n===5 ? "Today's practice is done." : "Today's practice"));
-  const sub = el("span","sub", n===5 ? "Come back tomorrow — the schedule handles the rest." : n+" of 5 finished");
-  hd.appendChild(sub); hd.appendChild(el("div","spacer"));
-  if(n===0){
+  hd.appendChild(el("h2", null, done && ctx.key ? ctx.title+" — done" : ctx.title));
+  let sub;
+  try{ sub = ctx.line(); }catch(e){ sub = ""; }
+  hd.appendChild(el("span","sub", sub || (n+" of "+TOTAL+" finished today")));
+  hd.appendChild(el("div","spacer"));
+  if(!ctx.key && n===0){
     const b = el("button","btn accent","Start today's practice");
     b.onclick = ()=>{ touchDay(); go("cards"); };
     hd.appendChild(b);
   }
   c.appendChild(hd);
+
   const strip = el("div","today");
-  [["Phrases",t.cards,"cards"],["Writing",t.write,"write"],["Speaking",t.speak,"speak"],["Listening",t.listen,"speak"],["Conversation",t.talk,"talk"]]
-    .forEach(([nm,done,v])=>{
-      const ch = el("button","chip"+(done?" done":""),nm);
+  [["Anki",t.cards,"cards"],["Writing",t.write,"write"],["Speaking",t.speak,"speak"],
+   ["Listening",t.listen,"listen"],["AI conversation",t.talk,"talk"],["Mind test",t.mind,"mind"]]
+    .forEach(([nm,dn,v])=>{
+      const ch = el("button","chip"+(dn?" done":"")+(v===CUR?" on":""),nm);
       ch.style.cursor="pointer"; ch.onclick=()=>go(v);
+      ch.setAttribute("aria-current", v===CUR ? "true" : "false");
       strip.appendChild(ch);
     });
   c.appendChild(strip);
+  if(!ctx.key){
+    c.insertAdjacentHTML("beforeend", `<p class="note" style="margin-top:10px">Today: <b>${esc((queueLeft()||0)+" phrases")}</b> · writing — ${esc((S.daily.writing.topic||"").slice(0,70))} · speaking — ${esc(Math.round(S.daily.speaking.secs/60*10)/10+" min")} · listening — ${esc((S.daily.listen.watch&&S.daily.listen.watch[0])||"")} · conversation. Open any tab to start there.</p>`);
+  }
   host.appendChild(c);
 }
 const VIEWS = {};
 let CUR = "cards";
 function go(v){
   CUR = v;
+  if(v!=="cards") renderStrip();
   document.querySelectorAll(".tab").forEach(b=> b.setAttribute("aria-selected", String(b.dataset.v===v)));
-  ["cards","write","speak","talk","prog"].forEach(k=> $("#v-"+k).hidden = (k!==v));
+  ["cards","write","speak","listen","talk","mind","prog"].forEach(k=> $("#v-"+k).hidden = (k!==v));
   (VIEWS[v]||function(){})();
+  renderStrip();
   window.scrollTo({top:0, behavior:"instant"});
 }
 document.getElementById("tabs").addEventListener("click", e=>{
@@ -838,11 +1308,6 @@ document.getElementById("tabs").addEventListener("click", e=>{
 });
 
 /* ---------- shared bits ---------- */
-function aiError(host, e){
-  if(e && e.code==="cancelled") return;
-  const d = el("div","err", aiMsg(e&&e.code));
-  host.appendChild(d);
-}
 function busy(btn, on, label){
   if(!btn) return;
   if(on){ btn.dataset.lbl = btn.textContent; btn.textContent = label||"Thinking…"; btn.disabled = true; }
@@ -888,10 +1353,10 @@ VIEWS.cards = function(){
   host.innerHTML = "";
   const dueN = due().length, newN = Object.values(S.cards).filter(c=>!c.due).length;
   const head = el("div","card tight");
-  head.innerHTML = `<div class="hd"><h2>Phrase memory</h2><span class="sub">${ids.length} left today \u00b7 ${dueN} due \u00b7 ${newN} unseen in the bank</span><div class="spacer"></div></div>
+  head.innerHTML = `<div class="hd"><h2>Today's Anki review</h2><span class="sub">${ids.length} left today \u00b7 ${dueN} due \u00b7 ${newN} unseen in the bank</span><div class="spacer"></div></div>
   <div class="note">Phrases, chunks and patterns \u2014 not isolated words. Grade honestly: the schedule only works if "Good" really means you recalled it.</div>`;
   const bar = el("div","row"); bar.style.marginTop="10px";
-  const addb = el("button","btn ghost sm","Add new phrases for my weak spots"); addb.setAttribute("data-ai-btn",""); addb.disabled=!SAMPLE;
+  const addb = el("button","btn ghost sm","Add new phrases for my weak spots"); 
   addb.onclick = ()=> expandDeck(addb, host);
   bar.appendChild(addb);
   head.appendChild(bar);
@@ -902,7 +1367,7 @@ VIEWS.cards = function(){
     const done = el("div","card");
     done.innerHTML = `<div class="quote">Nothing left in the queue.</div>
     <p class="note" style="margin-top:8px">Everything due today has been reviewed. The rest comes back on schedule \u2014 more cards tomorrow, not more today. Move on to writing: that's where these phrases become yours.</p>`;
-    const b = el("button","btn accent","Go to today's writing"); b.onclick=()=>go("write");
+    const b = el("button","btn accent","Go to today's writing practice"); b.onclick=()=>go("write");
     done.appendChild(b);
     host.appendChild(done);
     if(S.daily && !S.daily.cards.done){ S.daily.cards.done = true; touchDay(); renderMeta(); }
@@ -960,7 +1425,7 @@ function challengeBlock(c){
   const ta = el("textarea"); ta.rows=2; ta.placeholder="Your sentence…";
   w.appendChild(ta);
   const row = el("div","row"); row.style.marginTop="8px";
-  const b = el("button","btn sm","Check my sentence"); b.setAttribute("data-ai-btn",""); b.disabled=!SAMPLE;
+  const b = el("button","btn sm","Check my sentence"); 
   const out = el("div");
   b.onclick = async ()=>{
     const txt = ta.value.trim();
@@ -971,14 +1436,16 @@ function challengeBlock(c){
       return;
     }
     busy(b,true,"Checking…");
-    try{
-      const r = await askJSON([{role:"user",content:
+    {
+      let r = localSentence(txt, c);
+      const rr = await askJSON([{role:"user",content:
         COACH+"\n\n"+learnerBrief()+
         "\n\nThe learner was asked to use this phrase in their own sentence.\nPHRASE: "+c.p+"\nMEANING: "+c.m+
         "\nTHEIR SENTENCE: "+txt+
         "\n\nJudge whether they used the phrase correctly and naturally. Reply with ONLY this JSON:\n"+
         '{"verdict":"correct|incorrect|awkward","fixed":"minimally corrected version, or their sentence unchanged","elevated":"how a C1 speaker would say the same thing","why":["one-line reason","optional second"],"praise":"one specific thing they got right, or empty string","errorTags":["articles"],"next":"a short follow-up prompt forcing them to use the phrase again about something else"}'
       }],{modelTier:"quick", cache:false});
+      if(rr && rr.verdict) r = rr;
       busy(b,false);
       (r.errorTags||[]).forEach(logError);
       const ok = r.verdict==="correct";
@@ -993,7 +1460,7 @@ function challengeBlock(c){
           ${r.next?`<h4>Your turn again</h4><p class="note">${esc(r.next)}</p>`:""}
         </div>`;
       if(ok) out.insertAdjacentHTML("afterbegin",`<p class="note">Memory level: <b>${esc(LVL_NAMES[c.lvl])}</b></p>`);
-    }catch(e){ busy(b,false); aiError(out,e); }
+    }
   };
   row.appendChild(b);
   const skip = el("button","btn ghost sm","Skip");
@@ -1006,14 +1473,16 @@ async function expandDeck(btn, host){
   busy(btn,true,"Writing new cards…");
   const have = Object.values(S.cards).map(c=>c.p);
   const weak = Object.entries(S.errors).sort((a,b)=>b[1]-a[1]).slice(0,4).map(e=>e[0]).join(", ")||"none yet";
-  try{
-    const r = await askJSON([{role:"user",content:
+  {
+    let r = localCards(8);
+    const rr = await askJSON([{role:"user",content:
       COACH+"\n\n"+learnerBrief()+
       "\n\nWrite 8 NEW phrase cards for this learner. Target their recurring errors ("+weak+") and the next level up from "+S.level+
       ". Teach chunks, sentence frames and collocations that a learner at this stage can use this week — not rare idioms."+
       "\nDo NOT repeat any of these phrases: "+have.slice(0,160).join(" | ")+
       '\n\nReply with ONLY a JSON array of 8 objects: {"phrase":"","meaning":"","example":"","variations":["","",""],"spoken":"contraction/reduction note or empty","register":"Casual|Neutral|Professional|Formal|Academic|Very informal","naturalness":"Natural|Very natural|Native-like","mistake":"the common learner mistake with this chunk","cefr":"B1|B2|C1|C2","category":"short label"}'
     }],{modelTier:"default", cache:false});
+    if(Array.isArray(rr) && rr.length) r = rr;
     busy(btn,false);
     let added = 0;
     (Array.isArray(r)?r:[]).forEach(o=>{
@@ -1027,9 +1496,12 @@ async function expandDeck(btn, host){
     });
     save();
     S.daily.cards.ids = null; buildQueue();
-    const msg = el("div","card tight"); msg.innerHTML = `<div class="note">${added} new phrase${added===1?"":"s"} added to the bank. They'll start appearing in the queue.</div>`;
+    const msg = el("div","card tight");
+    msg.innerHTML = added
+      ? `<div class="note">${added} new phrase${added===1?"":"s"} added, chosen for your recorded weak spots (${esc(weak)}). They'll start appearing in the queue.</div>`
+      : `<div class="note">Nothing new to add for your current weak spots — the targeted phrases are already in the bank. Do more writing and speaking and the tracker will find the next gap.</div>`;
     host.insertBefore(msg, host.children[1]||null);
-  }catch(e){ busy(btn,false); aiError(host,e); }
+  }
 }
 
 /* ============================================================
@@ -1042,7 +1514,7 @@ VIEWS.write = function(){
   host.innerHTML = "";
 
   const task = el("div","card");
-  task.innerHTML = `<div class="hd"><h2>Today's writing</h2><span class="sub">${ph.write} · ${esc(ph.name)}</span></div>
+  task.innerHTML = `<div class="hd"><h2>Today's writing practice</h2><span class="sub">${ph.write} · ${esc(ph.name)}</span></div>
     <div class="quote">${esc(w.topic)}</div>
     <p class="note" style="margin-top:10px">Write it the way you'd actually say it. Don't reach for words you'd never use — reach for the phrases you're trying to make automatic.</p>`;
   if(targets.length){
@@ -1066,7 +1538,7 @@ VIEWS.write = function(){
   const upd = ()=>{ const n=words(ta.value); cnt.textContent = n+" words"+(n<ph.wmin?" · "+(ph.wmin-n)+" to go":(n>ph.wmax?" · a bit over, that's fine":" · target met")); };
   ta.addEventListener("input", ()=>{ upd(); w.text = ta.value; save(); });
   upd();
-  const sub = el("button","btn accent","Get feedback"); sub.setAttribute("data-ai-btn",""); sub.disabled=!SAMPLE;
+  const sub = el("button","btn accent","Get feedback"); 
   row.appendChild(sub); row.appendChild(cnt);
   box.appendChild(row);
   const out = el("div");
@@ -1083,8 +1555,9 @@ VIEWS.write = function(){
       return;
     }
     busy(sub,true,"Reading it properly…");
-    try{
-      const r = await askJSON([{role:"user",content:
+    {
+      let r = localWriting(text, w.topic, ph);
+      const rr = await askJSON([{role:"user",content:
         COACH+"\n\n"+learnerBrief()+
         "\n\nTASK GIVEN: "+w.topic+"\nTARGET LENGTH: "+ph.wmin+"-"+ph.wmax+" words."+
         (targets.length?"\nTARGET PHRASES"+(w.show?" (shown to them)":" (hidden from them)")+": "+targets.map(c=>c.p).join(" | "):"")+
@@ -1093,6 +1566,7 @@ VIEWS.write = function(){
         "Correct only the most important things — at most 4 sentence-level corrections, chosen because they block meaning or mark them as a learner. Do not rewrite everything.\n"+
         'Reply with ONLY this JSON:\n{"band":"A2|B1|B2|C1|C2","fluencyFeel":"translated|understandable but unnatural|conversational|natural|advanced|highly proficient","praise":"one or two specific things they did well, naming the structure","corrections":[{"mine":"their exact sentence","better":"more natural version","why":"the rule or collocation, one line"}],"scores":{"grammar":0,"vocabulary":0,"structure":0,"linking":0,"coherence":0,"naturalness":0},"errorTags":["articles"],"steal":["phrase worth memorising"],"priority":"the single highest-value thing to fix next time","next":"a 1-sentence rewrite task using the new language"}\nScores are 0-10 integers.'
       }],{modelTier:"default", cache:false});
+      if(rr && rr.band) r = rr;
       busy(sub,false);
       w.fb = r; w.text = text; w.done = true;
       (r.errorTags||[]).forEach(logError);
@@ -1102,7 +1576,7 @@ VIEWS.write = function(){
       if(r.band && ["A2","B1","B2","C1","C2"].includes(r.band)) reconsiderLevel();
       touchDay(); save(); renderMeta();
       renderWriteFB(out, r, targets, text);
-    }catch(e){ busy(sub,false); aiError(out,e); }
+    }
   };
 };
 function renderWriteFB(out, r, targets, text){
@@ -1160,12 +1634,12 @@ const FILLERS = /\b(uh|um|er|ah|like|you know|i mean|so so|how to say)\b/gi;
 
 VIEWS.speak = function(){
   const host = $("#v-speak");
-  const ph = phase(), sp = S.daily.speaking, ls = S.daily.listen;
+  const ph = phase(), sp = S.daily.speaking;
   host.innerHTML = "";
 
   /* --- speaking --- */
   const task = el("div","card");
-  task.innerHTML = `<div class="hd"><h2>Today's speaking</h2><span class="sub">${ph.speak} · no notes</span></div>
+  task.innerHTML = `<div class="hd"><h2>Today's speaking practice</h2><span class="sub">${ph.speak} · no notes</span></div>
     <div class="quote">${esc(sp.topic)}</div>
     <p class="note" style="margin-top:10px">Speak straight through. If you get stuck, paraphrase out loud — stopping to translate is the habit we're breaking.</p>`;
   host.appendChild(task);
@@ -1193,7 +1667,7 @@ VIEWS.speak = function(){
   box.appendChild(ta);
 
   const out = el("div");
-  const send = el("button","btn","Get speaking feedback"); send.style.marginTop="10px"; send.setAttribute("data-ai-btn",""); send.disabled=!SAMPLE;
+  const send = el("button","btn","Get speaking feedback"); send.style.marginTop="10px"; 
   box.appendChild(send); box.appendChild(out);
   host.appendChild(box);
 
@@ -1236,8 +1710,9 @@ VIEWS.speak = function(){
     const fill = (text.match(FILLERS)||[]).length;
     const hidden = (sp.hidden||[]).map(cardById).filter(Boolean);
     busy(send,true,"Listening back…");
-    try{
-      const r = await askJSON([{role:"user",content:
+    {
+      let r = localSpeaking(text, secs, wpm, fill, sp.topic, ph);
+      const rr = await askJSON([{role:"user",content:
         COACH+"\n\n"+learnerBrief()+
         "\n\nThis is a TRANSCRIPT of the learner speaking for "+secs+" seconds without notes (speech-to-text, so ignore punctuation and obvious mis-hearings). "+
         "Measured: "+words(text)+" words, about "+wpm+" words per minute, "+fill+" filler words.\n"+
@@ -1247,6 +1722,7 @@ VIEWS.speak = function(){
         "Give at most three improvements — the ones that would change their speaking most, in order.\n"+
         'Reply with ONLY this JSON:\n{"band":"A2|B1|B2|C1|C2","fluency":"one line on how it flowed","wellDone":["specific thing 1","specific thing 2"],"holdingBack":"the single biggest thing limiting them","top3":["improvement 1","improvement 2","improvement 3"],"rewrite":{"mine":"one weak stretch they said","better":"how a C1 speaker would deliver the same idea"},"errorTags":["verb tense"],"next":"a 60-second follow-up speaking prompt that forces the fix"}'
       }],{modelTier:"default", cache:false});
+      if(rr && rr.band) r = rr;
       busy(send,false);
       (r.errorTags||[]).forEach(logError);
       const used = hidden.filter(c=> usesPhrase(text,c.p));
@@ -1267,13 +1743,20 @@ VIEWS.speak = function(){
         ${r.rewrite?`<div class="fb"><h4>You said</h4><div class="en strike">${esc(r.rewrite.mine||"")}</div><h4>C1 version</h4><div class="en">${esc(r.rewrite.better||"")}</div></div>`:""}
         ${hidden.length?`<hr class="sep"><label class="lab">Hidden phrase test — these were never shown to you</label>`+hidden.map(c=>`<div class="row" style="margin-bottom:5px"><span class="pill ${used.includes(c)?"g":"r"}">${used.includes(c)?"used spontaneously":"didn't reach for it"}</span> <span class="en">${esc(c.p)}</span></div>`).join(""):""}
         ${r.next?`<div class="fb ok"><h4>Your turn</h4><p>${esc(r.next)}</p></div>`:""}`;
-    }catch(e){ busy(send,false); aiError(out,e); }
+    }
   };
 
-  /* --- listening --- */
+};
+
+
+/* ---------- TAB 4 — LISTENING ---------- */
+VIEWS.listen = function(){
+  const host = $("#v-listen");
+  const ls = S.daily.listen;
+  host.innerHTML = "";
   const L = el("div","card");
   const [w0,w1,w2] = ls.watch, [p0,p1,p2] = ls.pod, [t0,t1,t2] = ls.tt;
-  L.innerHTML = `<div class="hd"><h2>Today's listening</h2><span class="sub">different every day</span></div>
+  L.innerHTML = `<div class="hd"><h2>Today's listening practice</h2><span class="sub">different every day</span></div>
     <label class="lab">Watch</label>
     <div class="quote">${esc(w0)}</div>
     <p class="note">Section: ${esc(w1)} · Listen for: ${esc(w2)}</p>
@@ -1294,7 +1777,7 @@ VIEWS.speak = function(){
 };
 
 /* ============================================================
-   TAB 4 — CONVERSATION (fully text-based — no AI call, no mic)
+   TAB 5 — AI CONVERSATION (fully text-based, no mic)
    ============================================================ */
 const LINKWORDS = ["because","so","but","although","even though","however","therefore",
   "on top of that","at the same time","though","in other words","anyway","by the way",
@@ -1350,6 +1833,64 @@ const CONVOS = [
    ], correctId:"A", target:{phrase:"No way!", meaning:"Strong surprise or disbelief, in a good way — casual only.",
      variations:["No way, really?","You're kidding!","Get out of here!"], register:"Very informal", naturalness:"Native-like", when:"Reacting to surprising news with friends — not in professional settings."}}
 ];
+const OPENERS = {
+  work:"work", job:"work", office:"work", boss:"work", manager:"work", client:"work", task:"work", meeting:"work", deadline:"work",
+  movie:"media", show:"media", cartoon:"media", series:"media", watch:"media", film:"media",
+  family:"people", friend:"people", sister:"people", brother:"people", mom:"people", dad:"people", parents:"people",
+  tired:"feeling", stressed:"feeling", busy:"feeling", excited:"feeling", worried:"feeling", nervous:"feeling", happy:"feeling", frustrated:"feeling",
+  weekend:"time", today:"time", tomorrow:"time", yesterday:"time", night:"time", morning:"time"
+};
+/* specific comments the app can make about a detail, not just "tell me more" */
+const DETAIL_COMMENT = [
+  {re:/\b(comedy|comedies)\b/i, said:"Comedy's a solid choice when you just want to switch off for a bit."},
+  {re:/\b(horror)\b/i, said:"Not everyone can handle horror right before bed — that takes nerve."},
+  {re:/\b(k-?drama|korean drama)\b/i, said:"K-dramas pull people in for weeks at a time, from what I hear."},
+  {re:/\b(anime)\b/i, said:"Anime has such a different pace from most Western shows."},
+  {re:/\b(deadline)\b/i, said:"Deadlines have a way of making everything else feel urgent too."},
+  {re:/\b(overtime|ot)\b/i, said:"Overtime's rough when it becomes routine instead of the exception."},
+  {re:/\b(weekend)\b/i, said:"Weekends go by fast when you actually get to rest."},
+  {re:/\b(family|siblings?)\b/i, said:"Family stuff has a way of taking priority over everything else."},
+  {re:/\b(exhausted|drained|burnt out|burned out)\b/i, said:"That kind of tired doesn't usually go away with one good night's sleep."}
+];
+const TOPIC_FOLLOWUP = {
+  work:["What's making it like that lately?","How are you handling that so far?","Does that happen a lot, or is this a one-off?"],
+  media:["Is there one you've watched recently that you really enjoyed?","Would you actually recommend it?","How'd you end up finding that one?"],
+  people:["How are they doing?","Do you see them often?","What's that like for you?"],
+  feeling:["What's behind that, do you think?","Has it been like that for a while?","What would help right now?"],
+  time:["What are you planning to do about it?","How'd that go, in the end?","Got anything else lined up?"],
+  general:["What happened next?","How did that go?","What made you think that?","Why do you say that?"]
+};
+const REACT_OPEN = ["That makes sense.","Oh, I see.","Right, okay.","Really?","Huh, interesting.","I get that.","Fair enough.","No way.","Okay, that tracks."];
+const PLAIN_COMMENT = ["Fair enough.","Yeah, I get that.","Makes sense to me.","I can see that.","That sounds about right.","Okay, noted."];
+function topicOf(text){
+  const t = text.toLowerCase();
+  for(const k in OPENERS) if(new RegExp("\\b"+k+"\\b").test(t)) return OPENERS[k];
+  return "general";
+}
+function detailComment(text){
+  for(const d of DETAIL_COMMENT) if(d.re.test(text)) return d.said;
+  return null;
+}
+function contextualReply(C, txt){
+  const topic = topicOf(txt);
+  const react = rnd(REACT_OPEN);
+  const detail = detailComment(txt);
+  const priorMine = C.turns.filter(t=>t.r==="me").slice(0,-1);
+
+  /* occasionally, and never on the opening turn, just comment — not every turn needs a question */
+  if(priorMine.length>=1 && Math.random()<0.25){
+    return detail ? react+" "+detail : react+" "+rnd(PLAIN_COMMENT);
+  }
+  /* refer back to something said two or more turns ago, sometimes */
+  if(priorMine.length>=2 && Math.random()<0.3){
+    const back = priorMine[priorMine.length-1].t;
+    const short = back.length>60 ? back.slice(0,57)+"…" : back;
+    const follow = rnd(TOPIC_FOLLOWUP[topic]||TOPIC_FOLLOWUP.general);
+    return react+" By the way, you mentioned \u201c"+short+"\u201d earlier \u2014 "+follow.charAt(0).toLowerCase()+follow.slice(1);
+  }
+  const follow = rnd(TOPIC_FOLLOWUP[topic]||TOPIC_FOLLOWUP.general);
+  return detail ? react+" "+detail+" "+follow : react+" "+follow;
+}
 const REACTIONS = [
   "That makes sense. What made you decide that?",
   "Fair enough. How did that turn out in the end?",
@@ -1372,22 +1913,24 @@ VIEWS.talk = function(){
   const C = S.convo;
   host.innerHTML = "";
   const head = el("div","card tight");
+  const inChat = C.taughtToday && !C.mc;
   head.innerHTML = `<div class="hd"><h2>Conversation</h2><span class="sub">text only — no AI call, no microphone</span><div class="spacer"></div></div>
-    <div class="note">${C.mode==="free"?"Free chat — no hints, no scripted options. Type naturally and the phrases you already know are tracked automatically.":"Guided — pick the most natural reply, see why the others fall short, then produce your own answer."}</div>`;
+    <div class="note">${inChat
+      ? "A real back-and-forth — it reacts to what you actually write, not a fixed question list."
+      : "First, a short exchange to pick up a new phrase — then it becomes a normal conversation."}</div>`;
   const row = el("div","row"); row.style.marginTop="10px";
-  const sel = el("select"); sel.style.width="auto";
-  [["guided","Guided — multiple choice + production"],["free","Free chat — no hints"]].forEach(([v,l])=>{
-    const o = el("option",null,l); o.value=v; if((C.mode||"guided")===v)o.selected=true; sel.appendChild(o);
-  });
-  sel.onchange = ()=>{ C.mode = sel.value; C.turns=[]; C.mc=null; C.userTurns=0; save(); VIEWS.talk(); };
-  row.appendChild(sel);
   const reset = el("button","btn ghost sm","Start over");
-  reset.onclick = ()=>{ C.turns=[]; C.mc=null; C.userTurns=0; save(); VIEWS.talk(); };
+  reset.onclick = ()=>{ C.turns=[]; C.mc=null; C.userTurns=0; C.taughtToday=false; save(); VIEWS.talk(); };
   row.appendChild(reset);
+  if(inChat){
+    const nt = el("button","btn ghost sm","Practice a new phrase instead");
+    nt.onclick = ()=>{ C.mc=null; C.taughtToday=false; save(); VIEWS.talk(); };
+    row.appendChild(nt);
+  }
   head.appendChild(row);
   host.appendChild(head);
 
-  if((C.mode||"guided")==="guided") renderMC(host); else renderChat(host);
+  if(!inChat) renderMC(host); else renderChat(host);
 };
 
 /* ---- guided: multiple choice + production, entirely local ---- */
@@ -1404,6 +1947,12 @@ function renderMC(host){
       save(); VIEWS.talk();
     };
     box.appendChild(b);
+    if(S.day>1 || (S.writing&&S.writing.length)){
+      const skip = el("button","btn ghost sm","Skip straight to conversation");
+      skip.style.marginLeft="8px";
+      skip.onclick = ()=>{ C.taughtToday=true; C.turns=[{r:"ai",t:rnd(REACTIONS)}]; C.userTurns=0; save(); VIEWS.talk(); };
+      box.appendChild(skip);
+    }
     return;
   }
   const {item, picked} = C.mc;
@@ -1465,7 +2014,7 @@ function renderMC(host){
     S.daily.talk.done = true; touchDay(); renderMeta();
     const nx = el("div","row");
     const a = el("button","btn accent sm","Keep this conversation going");
-    a.onclick = ()=>{ S.convo.mode="free"; S.convo.turns=[{r:"ai",t:rnd(REACTIONS)}]; S.convo.userTurns=0; S.convo.mc=null; save(); VIEWS.talk(); };
+    a.onclick = ()=>{ S.convo.taughtToday=true; S.convo.turns=[{r:"ai",t:rnd(REACTIONS)}]; S.convo.userTurns=0; S.convo.mc=null; save(); VIEWS.talk(); };
     const b3 = el("button","btn ghost sm","New exchange");
     b3.onclick = ()=>{ S.convo.mc=null; save(); VIEWS.talk(); };
     nx.appendChild(a); nx.appendChild(b3); out.appendChild(nx);
@@ -1538,7 +2087,7 @@ function renderChat(host){
       s.innerHTML = "Noticed: you used <b>"+hits.slice(0,3).map(c=>esc(c.p)).join("</b>, <b>")+"</b> without being prompted. That counts as spontaneous use.";
       log.appendChild(s); C.turns.push({r:"sys", t:s.innerHTML});
     }
-    const reply = rnd(REACTIONS);
+    const reply = contextualReply(C, txt);
     C.turns.push({r:"ai", t:reply});
     log.appendChild(el("div","msg ai", reply));
     S.daily.talk.done = true; touchDay(); renderMeta(); save();
@@ -1560,13 +2109,290 @@ function renderChat(host){
       <div class="scoreline"><span>Average length</span><b>${avgLen} words</b></div>
       <div class="scoreline"><span>Turns with a linking word</span><b>${linked}</b></div>
       <div class="scoreline"><span>Known phrases used</span><b>${used.length}</b></div>
-      ${used.length?`<div class="fb ok"><h4>You used</h4>${used.map(c=>`<div class="en">${esc(c.p)}</div>`).join("")}</div>`:`<div class="fb fix"><h4>Try weaving in a phrase you know</h4><p class="note">${(activePool(3).map(c=>esc(c.p)).join(" · ")||"Keep chatting to build up your active pool.")}</p></div>`}
-      <p class="note" style="margin-top:8px">${esc(motivationLine())}</p>`;
+      ${used.length?`<div class="fb ok"><h4>You used</h4>${used.map(c=>`<div class="en">${esc(c.p)}</div>`).join("")}</div>`:`<div class="fb fix"><h4>Try weaving in a phrase you know</h4><p class="note">${(activePool(3).map(c=>esc(c.p)).join(" · ")||"Keep chatting to build up your active pool.")}</p></div>`}`;
   }
 }
 
 /* ============================================================
-   TAB 5 — PROGRESS
+   TAB — MIND TEST (adaptive, local — problem solving, analysis,
+   logic, grammar/vocab reasoning, inference, memory, verbal
+   reasoning; ties into English where it naturally fits)
+   ============================================================ */
+const MIND_CAT_NAMES = {problem:"Problem solving", analytical:"Analytical thinking", logic:"Logic", grammar:"Grammar reasoning",
+  vocab:"Vocabulary reasoning", inference:"Reading & inference", memory:"Memory", verbal:"Verbal reasoning",
+  pattern:"Pattern recognition", factop:"Fact, opinion or assumption", spoterror:"Spot the error", perspective:"Multiple perspectives",
+  decision:"Decision making", langlogic:"Language & logic"};
+function mindTestSize(){
+  const h = (S.mind&&S.mind.history||[]).slice(-10);
+  if(h.length<3) return 4;
+  const acc = h.filter(x=>x.ok).length/h.length;
+  if(acc>=0.85) return 3;   // strong: fewer questions, harder ones instead
+  if(acc<0.5) return 5;     // weak: a bit more targeted practice
+  return 4;                 // average
+}
+function mindDifficulty(){
+  const h = (S.mind&&S.mind.history||[]).slice(-8);
+  const acc = h.length? h.filter(x=>x.ok).length/h.length : 0.5;
+  const base = Math.min(3, phase().stage+1); // levels 1-4, cycle phase nudges the floor
+  if(h.length<4) return Math.max(1, base-1);
+  if(acc>=0.8) return Math.min(4, base+1);
+  if(acc<0.4) return Math.max(1, base-1);
+  return base;
+}
+/* q: {cat, level(1-3), prompt, options[], correct(idx), why, explainAsk?:bool} */
+const MIND_BANK = {
+  problem:[
+    {level:1, prompt:"You need to send a package before 5pm. The post office closes at 4:30 and it's a 20-minute walk away. It's currently 4:05. What's the best move?", options:["Walk to the post office anyway","Look for a courier pickup or a closer drop-off point instead","Wait until tomorrow","Mail it without checking the time"], correct:1, why:"With the walk alone taking longer than the time left, the fastest fix is finding an alternative drop-off — not repeating an action that's already too slow."},
+    {level:2, prompt:"Your team's shared spreadsheet keeps getting overwritten by two people editing at once. What actually solves this, not just reduces the symptom?", options:["Ask everyone to be more careful","Move to a tool with real-time collaborative editing or locking","Save more frequent backups","Email people before editing"], correct:1, why:"Careful behaviour and backups manage the symptom; only a tool that handles concurrent edits removes the actual cause."},
+    {level:3, prompt:"A process that used to take one day now regularly takes three, but no single step has gotten slower when you time it individually. What's the most likely explanation?", options:["Someone is being lazy","The steps are now waiting on each other — a queue or handoff delay, not the steps themselves","The task itself changed","Nothing changed, it's random"], correct:1, why:"When individual steps are unchanged but total time grows, the extra time is almost always sitting between steps — handoffs, approvals, queues — not inside them."},
+    {level:1, prompt:"You have 30 minutes before a meeting. Notes take 10 min, reviewing the deck takes 15 min, a quick email takes 5 min, and you need 5 min to get ready. What's the minimum time you actually need?", options:["25 minutes","30 minutes","35 minutes","40 minutes"], correct:2, why:"10+15+5+5 = 35 minutes — more than the 30 you have, so something has to be cut or moved, not squeezed in."},
+    {level:2, prompt:"You keep forgetting new vocabulary after two days. Which change addresses the actual problem?", options:["Learn 50 new words a day","Stop reviewing since it isn't working","Use spaced review and actively use the words in sentences","Only read the definitions more carefully"], correct:2, why:"Forgetting after a short gap is a review-timing and production problem — more raw input or more reading doesn't fix that; spaced review plus active use does."}
+  ],
+  analytical:[
+    {level:1, prompt:"Store A: 500 sales, 50 returns. Store B: 300 sales, 20 returns. Which store has the better return rate?", options:["Store A (10%) is better than Store B (6.7%)","Store B (6.7%) is better than Store A (10%)","They're the same","Can't tell from this"], correct:1, why:"Rate matters more than raw count: 50/500=10%, 20/300≈6.7% — B returns less per sale even with fewer total sales."},
+    {level:2, prompt:"Complaints rose right after a price increase, but so did complaints for a competitor who didn't raise prices. What does this suggest?", options:["The price increase caused all the complaints","Something industry-wide is happening, not just your price change","The competitor copied the price increase","There's no useful conclusion possible"], correct:1, why:"When the same effect shows up in a group that didn't share the suspected cause, the cause is probably something both groups have in common instead."},
+    {level:3, prompt:"A metric improved every single week for two months, then dropped sharply in week nine, the same week a public holiday fell. What should you check first?", options:["Assume the metric is now permanently broken","Check whether the holiday reduced the denominator (fewer working days) before concluding anything","Ignore week nine entirely","Restart the whole measurement"], correct:1, why:"A sudden one-week drop that lines up with a known calendar event is usually a measurement artifact, not a real reversal — check the denominator before drawing a conclusion."},
+    {level:2, prompt:"Employees who get regular feedback make fewer repeated mistakes. Employees who get no feedback keep making similar ones. What does this most strongly suggest?", options:["Feedback may help reduce repeated mistakes","Feedback guarantees perfect performance","Employees dislike feedback","Mistakes are unrelated to feedback"], correct:0, why:"The pattern supports a modest, hedged claim (\u201cmay help\u201d) — jumping to \u201cguarantees\u201d overstates what a correlation like this can prove."},
+    {level:1, prompt:"Store A: 500 sales, 50 returns. Store B: 300 sales, 20 returns. Which has the better (lower) return rate?", options:["Store A at 10%","Store B at about 6.7%","They're identical","Can't tell from this"], correct:1, why:"Compare rates, not raw counts: 50/500=10% vs 20/300\u22486.7% — B returns less per sale even though it sold fewer units overall."}
+  ],
+  logic:[
+    {level:1, prompt:"All of Maya's shipments this month left on a Tuesday or a Friday. Today is Wednesday and a shipment just left. What can you conclude?", options:["It's not one of Maya's shipments this rule applies to","Maya broke her pattern today","The rule is wrong","Nothing at all"], correct:0, why:"If every one of her shipments left on Tuesday or Friday, a Wednesday shipment simply isn't covered by that observation — most likely it isn't hers, or the premise needs rechecking, not the logic."},
+    {level:2, prompt:"If the invoice is approved, it gets paid within 5 days. This invoice was paid in 3 days. Was it definitely approved?", options:["Yes, definitely","Not necessarily — something else could cause early payment","No, it can't have been approved","Can't be paid that fast if unapproved"], correct:1, why:"“If approved → paid within 5 days” doesn't mean paid within 5 days only happens when approved — affirming the consequent isn't valid logic."},
+    {level:3, prompt:"Three staff — Ana, Bo, Cy — worked Mon–Wed shifts, no two on the same day, every day covered. Ana didn't work Monday. Bo worked the day right after Ana. Cy worked Wednesday. Who worked Monday?", options:["Ana","Bo","Cy","Can't be determined"], correct:1, why:"Cy has Wednesday, Ana isn't Monday, so Ana must be Tuesday — and Bo is the day right after Ana, i.e. Wednesday, which is taken, so Bo must be Monday instead, leaving Ana on Tuesday."},
+    {level:1, prompt:"All employees who complete the training receive a certificate. Maria completed the training. What follows?", options:["Maria may receive a certificate","Maria will receive a certificate","Maria did not receive a certificate","We can't know if Maria completed the training"], correct:1, why:"This is a direct deduction: the rule applies to everyone who completes the training, Maria did, so the conclusion follows with certainty, not just possibility."},
+    {level:2, prompt:"If it rains, the outdoor event is canceled. The event was not canceled. What follows?", options:["It definitely rained","It definitely did not rain","According to the rule, it did not rain","The event happened indoors"], correct:2, why:"This is valid by contraposition: if the trigger (rain) always causes cancellation, and cancellation didn't happen, the trigger didn't happen — phrased carefully as \u201caccording to the rule,\u201d since real life could still have exceptions the rule doesn't cover."}
+  ],
+  grammar:[
+    {level:1, prompt:"Which is correct?", options:["She don't like coffee.","She doesn't like coffee.","She not like coffee.","She isn't like coffee."], correct:1, why:"Third person singular present negative needs “doesn't” + the base verb."},
+    {level:2, prompt:"Which sentence has a different meaning from the other three?", options:["I haven't finished the report yet.","I still haven't finished the report.","I finished the report a while ago.","I've yet to finish the report."], correct:2, why:"The other three all say the report is NOT finished; only the third says it IS finished."},
+    {level:3, prompt:"Which version sounds most natural in spoken English for reporting an unplanned outcome?", options:["I ended up staying late.","I finished up by staying late as a result.","The result was that I stayed late in the end.","Due to circumstances, I remained until late."], correct:0, why:"“Ended up” is the natural spoken chunk for an unplanned result — the others are stiff, essay-register paraphrases of the same idea."},
+    {level:1, prompt:"Which sentence is most natural for a completed, finished-time past event?", options:["I have seen him yesterday.","I saw him yesterday.","I had seen him yesterday.","I see him yesterday."], correct:1, why:"“Yesterday” names a finished point in the past, so English uses the simple past — the present perfect (\u201chave seen\u201d) doesn't pair with a specific past time word."},
+    {level:2, prompt:"What's the actual difference between \u201cI stopped smoking\u201d and \u201cI stopped to smoke\u201d?", options:["No real difference","\u201cStopped smoking\u201d = quit the habit; \u201cstopped to smoke\u201d = paused something else in order to smoke","Both mean you quit","Both mean you paused to smoke"], correct:1, why:"The verb form after \u201cstop\u201d changes the meaning entirely: -ing names what you stopped doing, \u201cto + verb\u201d names why you stopped something else."},
+    {level:1, prompt:"Which is correct?", options:["Each of the reports need review.","Each of the reports needs review.","Each of the report need review.","Each of the reports are need review."], correct:1, why:"\u201cEach\u201d is singular, so the verb agrees with \u201ceach\u201d, not with the plural noun after it \u2014 \u201cneeds\u201d, not \u201cneed\u201d."},
+    {level:2, prompt:"Reporting \u201cI'll finish it tomorrow\u201d in the past, which is correct?", options:["She said she will finish it tomorrow.","She said she would finish it the next day.","She said she finish it tomorrow.","She says she would finished it tomorrow."], correct:1, why:"Reported speech in the past shifts \u201cwill\u201d to \u201cwould\u201d and \u201ctomorrow\u201d to \u201cthe next day\u201d, since the point of reference has moved."}
+  ],
+  vocab:[
+    {level:1, prompt:"Which word best completes: “The meeting was ___ postponed — nobody told us why.”", options:["suddenly","abruptly","instantly","promptly"], correct:1, why:"“Abruptly” carries the sense of unexplained and jarring, which fits “nobody told us why” better than the alternatives."},
+    {level:2, prompt:"Which pair is NOT a natural collocation?", options:["make a decision","take a risk","do a mistake","reach an agreement"], correct:2, why:"The natural collocation is “make a mistake”, not “do a mistake”."},
+    {level:3, prompt:"Which word fits best: “Her explanation was technically correct but somehow ___ — nobody actually understood the point.”", options:["confusing","unclear","opaque","incoherent"], correct:2, why:"“Opaque” precisely captures “technically correct but impossible to see through” — the others describe different failures (garbled, vague, or disorganised, not merely hard to penetrate)."},
+    {level:1, prompt:"“The meeting was ___ because nobody had prepared the documents.” Which word fits?", options:["efficient","productive","unproductive","convenient"], correct:2, why:"A meeting where nobody prepared documents is the classic setup for wasted time — \u201cunproductive\u201d is the only option consistent with that cause."},
+    {level:2, prompt:"\u201cI usually ___ TV after dinner.\u201d Which verb fits best?", options:["see","look","watch","view"], correct:2, why:"\u201cWatch\u201d is used for something you follow with attention over time (TV, a film, a game); \u201csee\u201d is passive/incidental and \u201clook\u201d needs \u201cat\u201d."}
+  ],
+  inference:[
+    {level:1, prompt:"“By the time Marco got to the station, the platform was empty and the departure board showed the next train in 40 minutes.” What can you infer?", options:["Marco caught his train","Marco missed his train","The station was closed","Marco was early"], correct:1, why:"An empty platform plus a 40-minute wait for the next train implies the one he wanted has already left."},
+    {level:2, prompt:"“The invoice was resent twice before anyone replied.” What does this most strongly imply?", options:["The first invoice was wrong","The recipient was slow to respond or the first attempts weren't seen","The sender made a mistake","The amount was disputed"], correct:1, why:"Resending twice before any reply points to a delay or non-receipt on the recipient's end — nothing here suggests an error in the invoice itself."},
+    {level:3, prompt:"“He thanked the team for their patience and said the update would be worth the wait.” What's the most likely context?", options:["A product launched early","A project is late and the speaker is managing expectations","The team is being replaced","A refund is being issued"], correct:1, why:"Thanking people for “patience” and promising something is “worth the wait” is a stock phrase used specifically when something is delayed."},
+    {level:1, prompt:"\u201cMark usually takes the bus. Yesterday he left home earlier than usual and arrived before his coworkers. He mentioned the roads were unusually quiet.\u201d Why did Mark probably arrive early?", options:["He worked from home","He left earlier and hit less traffic","His coworkers missed the bus","His workplace opened earlier"], correct:1, why:"Two details point the same direction \u2014 left earlier, quieter roads \u2014 so the simplest explanation covering both is less traffic, not a change on the coworkers' side."},
+    {level:2, prompt:"\u201cThe invoice was resent twice before anyone replied, and the client later apologized for the delay.\u201d What's the most reasonable inference?", options:["The invoice amount was wrong","The client hadn't seen or acted on the earlier attempts","The sender made an error","The invoice was never actually needed"], correct:1, why:"The apology for delay, paired with needing two resends, points to the message not being seen or acted on — not to a content error, which nothing here suggests."}
+  ],
+  memory:[
+    {level:1, mem:true, prompt:"Remember this list, then answer: apple, invoice, Tuesday, blue folder.", memAsk:"Which of these was in the list?", options:["Wednesday","invoice","green folder","banana"], correct:1, why:"“Invoice” was the second item in the list."},
+    {level:2, mem:true, prompt:"Remember: the client's name is Renz, the order number is 4482, and it ships from Cebu.", memAsk:"What was the order number?", options:["4482","4284","8442","2448"], correct:0, why:"The order number given was 4482."},
+    {level:1, mem:true, prompt:"Remember these four things: blue notebook, 7:30 PM, train station, 24 dollars.", memAsk:"What time was mentioned?", options:["6:30 PM","7:00 PM","7:30 PM","8:30 PM"], correct:2, why:"The time given in the list was 7:30 PM."}
+  ],
+  verbal:[
+    {level:1, prompt:"Which word doesn't belong with the others?", options:["invoice","receipt","statement","umbrella"], correct:3, why:"The first three are billing documents; “umbrella” doesn't belong to that category."},
+    {level:2, prompt:"“Cautious” is to “reckless” as “generous” is to ___.", options:["kind","stingy","wealthy","giving"], correct:1, why:"The relationship is opposites — “stingy” is the opposite of “generous”, matching “reckless” as the opposite of “cautious”."},
+    {level:1, prompt:"Which pair is NOT a natural collocation?", options:["make a decision","take a risk","do a mistake","reach an agreement"], correct:2, why:"The natural collocation is \u201cmake a mistake\u201d, not \u201cdo a mistake\u201d — a common near-miss because \u201cdo\u201d works for tasks in general."},
+    {level:3, prompt:"“All managers are employees. Some employees work remotely.” Can we conclude some managers work remotely?", options:["Yes","No","Only if all employees work remotely","There is not enough information"], correct:3, why:"We know some employees work remotely, but nothing tells us whether those particular employees are managers — the categories overlap only partially."},
+    {level:4, prompt:"What unstated assumption does this argument rely on? “We should hire more staff because complaints have gone up.”", options:["That complaints are always about staffing","That more staff would actually reduce complaints","That complaints are bad","That hiring is possible"], correct:1, why:"The conclusion only follows if you assume adding staff would fix the specific cause of the complaints — an unstated and not-obviously-true link.", explain:true}
+  ],
+  pattern:[
+    {level:1, prompt:"2 → 4 → 8 → 16 → ?", options:["20","24","30","32"], correct:3, why:"Each number doubles the one before it: 16×2=32."},
+    {level:2, prompt:"3, 6, 12, 24, ?", options:["30","36","42","48"], correct:3, why:"Each term doubles: 24×2=48 — the same doubling rule as before, just starting from a different number."},
+    {level:3, prompt:"1, 1, 2, 3, 5, 8, ?", options:["11","12","13","14"], correct:2, why:"Each number is the sum of the two before it (Fibonacci): 5+8=13."}
+  ],
+  factop:[
+    {level:1, prompt:"“The store closes at 9 PM.” — assuming this comes from the store's own posted hours, what kind of statement is this?", options:["Fact","Opinion","Assumption","Conclusion"], correct:0, why:"A checkable, sourced detail like posted hours is a fact, not a judgment or a guess."},
+    {level:2, prompt:"“This is the best store in the city.” What kind of statement is this?", options:["Fact","Opinion","Assumption","Evidence"], correct:1, why:"“Best” is a value judgment with no agreed measure — that makes it an opinion, however confidently it's stated."},
+    {level:3, prompt:"“The store must be popular because it has many customers.” What kind of statement is this?", options:["Fact","Opinion","Inference","Evidence"], correct:2, why:"This draws a conclusion (popular) from an observation (many customers) — that's an inference, not a directly stated fact."}
+  ],
+  spoterror:[
+    {level:2, prompt:"“John studied for five hours and failed the test. Therefore, studying does not help people pass tests.” What's wrong with this reasoning?", options:["Nothing, it's valid","One case doesn't prove a general rule about studying","John didn't study enough","The test was too hard"], correct:1, why:"This is an overgeneralization — a single result can't establish a general claim about whether studying helps."},
+    {level:3, prompt:"“Sales went up right after we redesigned the website, so the redesign caused the increase.” What's the issue?", options:["Nothing, it's solid reasoning","It assumes causation from correlation, ignoring other things that changed at the same time","The redesign wasn't necessary","Sales data can't be trusted"], correct:1, why:"Two things happening around the same time doesn't prove one caused the other — a seasonal shift, a promotion, or anything else could explain it too."},
+    {level:4, prompt:"“Either we cut the budget completely, or the project fails.” What reasoning problem is this?", options:["Overgeneralization","False dilemma — ignoring options between the two extremes","Circular reasoning","Correlation vs causation", ], correct:1, why:"Presenting only two extreme options while ignoring a middle ground (a partial cut, a delay, a different source of funds) is a false dilemma.", explain:true},
+    {level:2, prompt:"“Everyone I've talked to loves this product, so it must be great.” What's the issue?", options:["Nothing, that's solid evidence","The people talked to are probably not a random or representative sample","Products are always good if popular","There's no issue with small samples"], correct:1, why:"Whoever you happen to talk to is rarely a fair sample of everyone — people who already like a product are more likely to be the ones you hear from."},
+    {level:3, prompt:"“This method must be right because it's always been done this way.” What's the reasoning problem?", options:["Appeal to tradition — age or habit doesn't make something correct","Overgeneralization","False dilemma","Circular reasoning"], correct:0, why:"How long something has been done says nothing about whether it's actually effective — that's an appeal to tradition, not evidence."}
+  ],
+  perspective:[
+    {level:2, prompt:"A coworker doesn't respond to your message for six hours. Which explanation is LEAST likely to be the right first assumption?", options:["They were busy or in meetings","They didn't see the message yet","They're deliberately ignoring you","They were dealing with something urgent"], correct:2, why:"Assuming deliberate avoidance first is the least supported explanation — busy, unseen, or dealing with something else all fit the same evidence better and are far more common."},
+    {level:3, prompt:"A regular customer suddenly stops ordering. Which explanation is best supported without more evidence?", options:["They must be unhappy with the product","There are several equally plausible reasons — unhappy, budget changes, found an alternative, life got busy — none confirmed yet","They switched to a competitor for certain","They forgot the business exists"], correct:1, why:"With no further evidence, the honest answer is that several explanations remain open — picking one confidently would be jumping ahead of the evidence."}
+  ],
+  decision:[
+    {level:2, prompt:"You have one hour. Task A is urgent but low importance (15 min). Task B is important but not urgent (40 min). Task C takes 10 minutes and is needed before tomorrow. What's the most reasonable approach?", options:["Do A first because it's urgent","Do C and B, skip or defer A since it's low importance despite feeling urgent","Do all three at once","Do B only"], correct:1, why:"Urgency without importance is the classic trap — C is a real deadline and B has lasting value; A being merely urgent doesn't make it worth the time."},
+    {level:3, prompt:"You're choosing between finishing a task perfectly (2 more hours) or submitting a solid version now and improving it later if needed. Deadline is in 90 minutes. What's more reasonable?", options:["Keep perfecting it past the deadline","Submit the solid version on time and iterate afterward if there's room to", "Ask for an extension automatically","Abandon the task"], correct:1, why:"When perfection would blow the deadline, a solid on-time version beats a better late one — you can usually still improve it afterward, but you can't undo a missed deadline."}
+  ],
+  langlogic:[
+    {level:2, prompt:"“Although Sarah was tired, she finished the report before leaving.” What does “although” communicate here?", options:["Cause","Contrast","Result","Sequence"], correct:1, why:"“Although” signals a contrast — an expected obstacle (tiredness) that didn't stop the outcome."},
+    {level:3, prompt:"“Since the client hadn't replied, we assumed the deal was off.” What does “since” mean here?", options:["From that time onward","Because","Contrast","Sequence"], correct:1, why:"Here “since” means “because” (a reason), not a point in time — a common ambiguity in English that context resolves."},
+    {level:2, prompt:"“Even though the flight was delayed, we still made the connection.” What does “even though” signal?", options:["Cause","An unexpected contrast — the delay would normally have caused a problem","Sequence of events","Addition"], correct:1, why:"“Even though” flags that the expected consequence (missing the connection) didn't happen despite the obstacle — a contrast, like “although”."},
+    {level:3, prompt:"“Given that the budget was cut, the timeline had to change.” What does “given that” mean here?", options:["As a gift","Because / considering that","In spite of","At the same time as"], correct:1, why:"“Given that” introduces an accepted fact used as the basis for a conclusion — functionally close to “because” or “considering that”."}
+  ]
+};
+function pickMindQuestion(cats, diff, askedIdx){
+  const pool = [];
+  cats.forEach(cat=> (MIND_BANK[cat]||[]).forEach((q,i)=>{
+    if(Math.abs(q.level-diff)<=1) pool.push({...q, cat, i});
+  }));
+  const fresh = pool.filter(q=> !askedIdx.has(q.cat+q.i));
+  const from = fresh.length? fresh : pool;
+  return from.length? rnd(from) : null;
+}
+/* pick a category weighted toward the ones with lower recorded accuracy,
+   so recurring weaknesses get more practice without ever locking out the rest */
+function weightedCategory(cats){
+  const stats = S.mind.cat || {};
+  const weights = cats.map(c=>{
+    const s = stats[c];
+    if(!s || s.total<2) return 1.4; // give under-tested categories a slight boost too
+    const acc = s.ok/s.total;
+    return 0.4 + (1-acc)*1.6; // lower accuracy -> higher weight, floor so nothing goes to zero
+  });
+  const total = weights.reduce((a,b)=>a+b,0);
+  let r = Math.random()*total;
+  for(let i=0;i<cats.length;i++){ r -= weights[i]; if(r<=0) return cats[i]; }
+  return cats[cats.length-1];
+}
+const ALL_CATS = ["problem","analytical","logic","grammar","vocab","inference","verbal","pattern","factop","spoterror","perspective","decision","langlogic","memory"];
+/* not every category shows up every day — pick a small daily subset, weighted so
+   recurring weaknesses are guaranteed a slot, with the rest filled in for variety */
+function todaysCategories(n){
+  const stats = S.mind.cat || {};
+  const weak = Object.keys(stats).filter(c=> stats[c].total>=2 && stats[c].ok/stats[c].total<0.55);
+  const rest = ALL_CATS.filter(c=> !weak.includes(c) && c!=="memory");
+  const shuffledRest = rest.slice().sort(()=>Math.random()-0.5);
+  const picked = [...new Set([...weak.slice(0,2), ...shuffledRest])].slice(0, Math.max(3, Math.min(5,n+1)));
+  if(Math.random()<0.25 && !picked.includes("memory")) picked.push("memory");
+  return picked;
+}
+function mindSession(){
+  const d = S.daily.mind;
+  if(!d.set){
+    const diff = mindDifficulty();
+    const cats = todaysCategories(d.n);
+    S.mind.recentQ = S.mind.recentQ || [];
+    const asked = new Set(S.mind.recentQ.slice(-25));
+    const set = [];
+    for(let k=0;k<d.n;k++){
+      const cat = weightedCategory(cats);
+      let q = pickMindQuestion([cat], diff, asked);
+      if(!q) q = pickMindQuestion(cats, diff, asked);
+      if(!q) q = pickMindQuestion(ALL_CATS, diff, asked);
+      if(q){ asked.add(q.cat+q.i); set.push(q); S.mind.recentQ.push(q.cat+q.i); }
+    }
+    S.mind.recentQ = S.mind.recentQ.slice(-50);
+    d.set = set; d.answers = [];
+  }
+  return d;
+}
+VIEWS.mind = function(){
+  const host = $("#v-mind");
+  host.innerHTML = "";
+  const d = mindSession();
+  const idx = d.progress||0;
+
+  if(idx >= d.set.length){
+    const correct = d.answers.filter(a=>a.ok).length;
+    const acc = d.answers.length? Math.round(100*correct/d.answers.length) : 0;
+    const byCat = {};
+    d.answers.forEach(a=>{ byCat[a.cat]=byCat[a.cat]||{ok:0,total:0}; byCat[a.cat].total++; if(a.ok)byCat[a.cat].ok++; });
+    const entries = Object.entries(byCat);
+    const strongest = entries.filter(([,v])=>v.ok===v.total).map(([k])=>MIND_CAT_NAMES[k]||k)[0];
+    const weakest = entries.filter(([,v])=>v.ok<v.total).sort((a,b)=>(a[1].ok/a[1].total)-(b[1].ok/b[1].total))[0];
+    const diffLabel = {1:"Basic",2:"Intermediate",3:"Advanced",4:"C2 / expert"}[mindDifficulty()]||"Intermediate";
+    const explainedOne = d.answers.find(a=>a.explainText);
+    const done = el("div","card");
+    done.innerHTML = `<div class="hd"><h2>Today's mind test</h2><span class="sub">done</span></div>
+      <div class="scoreline"><span>Questions</span><b>${d.answers.length}</b></div>
+      <div class="scoreline"><span>Correct</span><b>${correct}/${d.answers.length}</b></div>
+      ${strongest?`<div class="scoreline"><span>Strongest today</span><b>${esc(strongest)}</b></div>`:""}
+      ${weakest?`<div class="scoreline"><span>Needs practice</span><b>${esc(MIND_CAT_NAMES[weakest[0]]||weakest[0])}</b></div>`:""}
+      <div class="scoreline"><span>Difficulty</span><b>${esc(diffLabel)}</b></div>
+      ${explainedOne?`<div class="scoreline"><span>English noted</span><b>reasoning explained in writing</b></div>`:""}
+      ${weakest?`<p class="note" style="margin-top:8px">Focus for future practice: ${esc(MIND_CAT_NAMES[weakest[0]]||weakest[0])}.</p>`:`<p class="note" style="margin-top:8px">${acc>=80?"You're ready for a step up in difficulty.":acc<50?"Tomorrow starts a notch easier.":"Difficulty stays about the same."}</p>`}`;
+    host.appendChild(done);
+    if(!d.done){ d.done=true; touchDay(); renderMeta(); }
+    return;
+  }
+
+  const q = d.set[idx];
+  const box = el("div","card");
+  box.innerHTML = `<div class="hd"><h2>Today's mind test</h2><span class="sub">${idx+1} of ${d.set.length} · ${esc(MIND_CAT_NAMES[q.cat]||q.cat)} · level ${q.level}</span></div>
+    <div class="quote">${esc(q.prompt)}</div>`;
+  if(q.mem){
+    const cont = el("button","btn accent","I've got it — ask me");
+    box.appendChild(cont);
+    const qBox = el("div"); box.appendChild(qBox);
+    cont.onclick = ()=>{
+      cont.remove();
+      qBox.innerHTML = `<p class="lab" style="margin-top:8px">${esc(q.memAsk)}</p>`;
+      renderOptions(qBox);
+    };
+    host.appendChild(box);
+    return;
+  }
+  renderOptions(box);
+  host.appendChild(box);
+
+  function renderOptions(target){
+    const opts = el("div"); opts.style.marginTop="10px";
+    q.options.forEach((o,i)=>{
+      const b = el("button","btn ghost sm"); b.style.display="block"; b.style.width="100%"; b.style.textAlign="left"; b.style.marginBottom="6px";
+      b.textContent = o;
+      b.onclick = ()=> answer(i, target, opts);
+      opts.appendChild(b);
+    });
+    target.appendChild(opts);
+  }
+  function answer(i, target, opts){
+    [...opts.children].forEach(b=> b.disabled=true);
+    const ok = i===q.correct;
+    S.mind.history = (S.mind.history||[]).concat([{ok, cat:q.cat, d:todayKey()}]).slice(-60);
+    S.mind.cat = S.mind.cat || {};
+    S.mind.cat[q.cat] = S.mind.cat[q.cat] || {ok:0, total:0};
+    S.mind.cat[q.cat].total++;
+    if(ok) S.mind.cat[q.cat].ok++;
+    const rec = {ok, cat:q.cat};
+    d.answers.push(rec);
+    d.progress = idx+1; d.correct = (d.correct||0) + (ok?1:0);
+    save();
+    const fb = el("div","fb "+(ok?"ok":"fix")); fb.style.marginTop="10px";
+    fb.innerHTML = `<h4>${ok?"Right":"Not quite"}</h4><p>${esc(q.why)}</p>`;
+    target.appendChild(fb);
+    const advance = ()=>{
+      const nx = el("button","btn accent"); nx.style.marginTop="10px";
+      nx.textContent = d.progress<d.set.length ? "Next" : "See today's result";
+      nx.onclick = ()=> VIEWS.mind();
+      target.appendChild(nx);
+    };
+    if(q.explain){
+      const ex = el("div"); ex.style.marginTop="10px";
+      ex.innerHTML = `<label class="lab">Why did you choose that? (optional — a sentence or two, in English)</label>`;
+      const ta = el("textarea"); ta.rows=2; ex.appendChild(ta);
+      const b2 = el("button","btn ghost sm"); b2.style.marginTop="6px"; b2.textContent="Save my reasoning";
+      b2.onclick = ()=>{
+        const txt = ta.value.trim();
+        if(txt){
+          rec.explainText = txt;
+          const sc = scanText(txt);
+          const note = el("div","note"); note.style.marginTop="6px";
+          note.textContent = sc.findings.length ? "Noted — one thing worth a look: "+sc.findings[0].why : "Noted — clean sentence.";
+          ex.appendChild(note);
+          save();
+        }
+        b2.disabled = true;
+        advance();
+      };
+      ex.appendChild(b2);
+      target.appendChild(ex);
+    } else {
+      advance();
+    }
+  }
+};
+
+/* ============================================================
+   TAB 6 — PROGRESS
    ============================================================ */
 VIEWS.prog = function(){
   const host = $("#v-prog");
@@ -1630,10 +2456,10 @@ VIEWS.prog = function(){
   const pr = el("div","card");
   pr.innerHTML = `<div class="hd"><h2>Your English profile</h2><span class="sub">built from what you actually produced</span><div class="spacer"></div></div>`;
   const prow = el("div","row");
-  const gen = el("button","btn ghost sm", S.profile? "Rebuild profile":"Build my profile"); gen.setAttribute("data-ai-btn",""); gen.disabled=!SAMPLE;
+  const gen = el("button","btn ghost sm", S.profile? "Rebuild profile":"Build my profile"); 
   prow.appendChild(gen);
-  const assess = el("button","btn accent sm","Run the 30-day assessment"); assess.setAttribute("data-ai-btn","");
-  assess.disabled = !SAMPLE || (S.day<30 && !S.pendingAssessment);
+  const assess = el("button","btn accent sm","Run the 30-day assessment");
+  assess.disabled = (S.day<30 && !S.pendingAssessment);
   prow.appendChild(assess);
   pr.appendChild(prow);
   const pout = el("div"); pr.appendChild(pout);
@@ -1675,17 +2501,19 @@ function evidence(){
 }
 async function buildProfile(btn, out){
   busy(btn,true,"Reading your work…");
-  try{
-    const r = await askJSON([{role:"user",content:
+  {
+    let r = localProfile();
+    const rr = await askJSON([{role:"user",content:
       COACH+"\n\n"+learnerBrief()+"\n\nEVIDENCE FROM THEIR ACTUAL WORK:\n"+evidence().slice(0,12000)+
       "\n\nBuild their English profile. Base every line on the evidence above — quote or paraphrase what they actually wrote or said. Do not inflate the level and do not criticise unnecessarily. If there isn't enough evidence for a section, say so in that section.\n"+
       'Reply with ONLY this JSON: {"cefr":"A2|B1|B2|C1|C2","cefrWhy":"the evidence for that estimate","strengths":["",""],"weaknesses":["",""],"recurringErrors":["",""],"recognisedNotUsed":["",""],"usedNaturally":["",""],"misused":[""],"understoodNotAutomatic":[""],"fluencyBlockers":["the biggest things stopping natural communication"],"listening":"one line","pronunciation":"one line or unknown","conversational":"one line","nextThree":["priority 1","priority 2","priority 3"]}'
     }],{modelTier:"complex", cache:false});
+    if(rr && rr.cefr) r = rr;
     busy(btn,false);
     S.profile = Object.assign({d:todayKey()}, r);
     if(r.cefr) S.level = r.cefr;
     save(); renderMeta(); renderProfile(out, S.profile);
-  }catch(e){ busy(btn,false); aiError(out,e); }
+  }
 }
 function renderProfile(out, p){
   const L = (t,arr)=> (arr&&arr.length)? `<div class="fb"><h4>${esc(t)}</h4><ul class="list">${arr.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`:"";
@@ -1700,15 +2528,17 @@ function renderProfile(out, p){
 }
 async function runAssessment(btn, out){
   busy(btn,true,"Comparing day 1 with today…");
-  try{
+  {
+    let r = localAssess();
     const first = S.writing.slice(0,2).map(x=>"["+x.d+"] "+(x.text||"").slice(0,400)).join("\n\n")||"no early sample";
-    const r = await askJSON([{role:"user",content:
+    const rr = await askJSON([{role:"user",content:
       COACH+"\n\n"+learnerBrief()+
       "\n\nEARLIEST WRITING IN THIS CYCLE:\n"+first+
       "\n\nCURRENT EVIDENCE:\n"+evidence().slice(0,11000)+
       "\n\nThis is the end of a 30-day cycle. Compare the start of the cycle with now, then design the next 30 days. Do not declare a level reached because lessons were completed — require demonstrated performance, and cite it.\n"+
       'Reply with ONLY this JSON: {"level":"A2|B1|B2|C1|C2","improved":["with evidence",""],"stillWeak":["",""],"recurringMistakes":[""],"newlyActive":[""],"stillPassive":[""],"fluencyBlockers":[""],"nextPriority":["","",""],"c2Gap":"what is still missing for C2, concretely","nextCycle":{"theme":"","days1_7":"","days8_14":"","days15_21":"","days22_30":"","harder":"what specifically gets harder, beyond just more vocabulary"},"summary":"3 sentences the learner should remember"}'
     }],{modelTier:"complex", cache:false});
+    if(rr && rr.level) r = rr;
     busy(btn,false);
     S.assessments.push({d:todayKey(), cycle:S.cycle, level:r.level, summary:r.summary, full:r});
     if(r.level) S.level = r.level;
@@ -1727,7 +2557,7 @@ async function runAssessment(btn, out){
         <p class="note">Days 15–21: ${esc((r.nextCycle||{}).days15_21||"")}</p>
         <p class="note">Days 22–30: ${esc((r.nextCycle||{}).days22_30||"")}</p>
         <p class="note"><b>What gets harder:</b> ${esc((r.nextCycle||{}).harder||"")}</p></div>`;
-  }catch(e){ busy(btn,false); aiError(out,e); }
+  }
 }
 
 /* ============================================================
@@ -1748,19 +2578,9 @@ async function runAssessment(btn, out){
   if(!S.convo.mode) S.convo.mode = phase().stage>=3 ? "free" : "guided";
   save();
   renderMeta();
-  $("#foot").innerHTML = `<div class="quote" style="font-size:15px">${esc(motivationLine())}</div>`;
+  $("#foot").innerHTML = "";
   go("cards");
-  initClaude().then(()=>{
-    document.querySelectorAll("[data-ai-btn]").forEach(n=>{ n.disabled = !SAMPLE; });
-    if(!SAMPLE){
-      $("#foot").innerHTML = `<div class="quote" style="font-size:15px;margin-bottom:4px">${esc(motivationLine())}</div>
-        <div style="font-size:11px">Coaching feedback for writing and speaking needs Claude. Flashcards, the schedule, phrase memory, and conversation practice all work without it. · Updated ${esc(BUILD)}</div>`;
-    }else{
-      $("#foot").innerHTML = `<div class="quote" style="font-size:15px;margin-bottom:4px">${esc(motivationLine())}</div>
-        <div style="font-size:11px">Grade honestly. Produce more than you study. Come back tomorrow. · Updated ${esc(BUILD)}</div>`;
-    }
-    if(CUR) go(CUR);
-  });
+  initClaude();
   window.addEventListener("beforeunload", ()=>{ try{ localStorage.setItem(LSKEY, JSON.stringify(S)); }catch(e){} });
 })();
 
