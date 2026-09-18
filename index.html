@@ -1,0 +1,1756 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kim — personal English coach</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FFFFFF; --surface:#FFFFFF; --surface2:#F6F6F4; --ink:#141414; --muted:#5C5C5C;
+  --line:#E4E4E1; --line2:#CFCFCB; --accent:#F26B1D; --accent-soft:#FDE7D6; --accent-ink:#FFFFFF;
+  --warn:#B4472C; --warn-soft:#F6E2DB; --gold:#9A761B; --gold-soft:#F2E9D2;
+  --shadow:0 1px 0 rgba(20,20,20,.05);
+  --ui:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --read:"Newsreader",Georgia,"Times New Roman",serif;
+  --r:10px;
+}
+/* fixed light + orange scheme by request — same in dark mode and with data-theme overrides */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#FFFFFF; --surface:#FFFFFF; --surface2:#F6F6F4; --ink:#141414; --muted:#5C5C5C;
+    --line:#E4E4E1; --line2:#CFCFCB; --accent:#F26B1D; --accent-soft:#FDE7D6; --accent-ink:#FFFFFF;
+    --warn:#B4472C; --warn-soft:#F6E2DB; --gold:#9A761B; --gold-soft:#F2E9D2;
+    --shadow:0 1px 0 rgba(20,20,20,.05);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#FFFFFF; --surface:#FFFFFF; --surface2:#F6F6F4; --ink:#141414; --muted:#5C5C5C;
+  --line:#E4E4E1; --line2:#CFCFCB; --accent:#F26B1D; --accent-soft:#FDE7D6; --accent-ink:#FFFFFF;
+  --warn:#B4472C; --warn-soft:#F6E2DB; --gold:#9A761B; --gold-soft:#F2E9D2;
+  --shadow:0 1px 0 rgba(20,20,20,.05);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink); font-family:var(--ui);
+  font-size:16px; line-height:1.55; -webkit-text-size-adjust:100%;
+}
+h1,h2,h3,h4{margin:0;font-weight:600;letter-spacing:-.01em}
+p{margin:0 0 .7em}
+button{font-family:inherit;font-size:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- chrome ---------- */
+.top{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--line)}
+.top-in{max-width:820px;margin:0 auto;padding:10px 16px 0;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.brand{font-family:var(--read);font-weight:500;font-size:19px;letter-spacing:-.015em}
+.brand em{font-style:italic;color:var(--accent)}
+.meta{margin-left:auto;display:flex;gap:14px;align-items:baseline;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.meta b{color:var(--ink);font-weight:600}
+.tabs{max-width:820px;margin:0 auto;padding:8px 8px 0;display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{background:none;border:0;padding:8px 12px 10px;color:var(--muted);font-size:14px;font-weight:500;white-space:nowrap;border-bottom:2px solid transparent;position:relative}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tab .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-left:6px;vertical-align:middle;opacity:0}
+.tab.pending .dot{opacity:1}
+main{max-width:820px;margin:0 auto;padding:18px 16px 96px}
+section[hidden]{display:none}
+
+/* ---------- pieces ---------- */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:var(--shadow);margin-bottom:14px}
+.card.tight{padding:14px}
+.lede{font-family:var(--read);font-size:17px;line-height:1.5;color:var(--muted)}
+.hd{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.hd h2{font-size:16px}
+.hd .sub{color:var(--muted);font-size:13px}
+.spacer{flex:1}
+.btn{background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent);border-radius:8px;padding:9px 15px;font-weight:600;font-size:14.5px}
+.btn:hover{filter:brightness(0.94)}
+.btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.btn.ghost{background:transparent;color:var(--accent);border-color:var(--accent)}
+.btn.ghost:hover{background:var(--accent-soft);filter:none}
+.btn.accent{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.sm{padding:6px 11px;font-size:13px;border-radius:7px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pill{display:inline-block;font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:999px;background:var(--surface2);border:1px solid var(--line);color:var(--muted)}
+.pill.g{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+.pill.r{background:var(--warn-soft);border-color:transparent;color:var(--warn)}
+.pill.y{background:var(--gold-soft);border-color:transparent;color:var(--gold)}
+textarea,input[type=text],select{
+  width:100%;background:var(--surface2);color:var(--ink);border:1px solid var(--line2);
+  border-radius:8px;padding:11px 12px;font-family:var(--read);font-size:16.5px;line-height:1.55;resize:vertical
+}
+select,input[type=text]{font-family:var(--ui);font-size:15px}
+label.lab{display:block;font-size:12.5px;color:var(--muted);margin:0 0 5px;font-weight:600}
+.count{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.note{font-size:13.5px;color:var(--muted)}
+hr.sep{border:0;border-top:1px solid var(--line);margin:16px 0}
+.en{font-family:var(--read)}
+.quote{font-family:var(--read);font-size:19px;line-height:1.45}
+.list{margin:0;padding-left:18px}
+.list li{margin-bottom:5px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:560px){.grid2{grid-template-columns:1fr}}
+
+/* today strip */
+.today{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.chip{font-size:12px;padding:4px 9px;border-radius:999px;border:1px solid var(--line2);color:var(--muted);background:var(--surface)}
+.chip.done{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+.chip.done::before{content:"✓ "}
+
+/* flashcard */
+.flash{min-height:210px;display:flex;flex-direction:column;justify-content:center;text-align:center;padding:26px 18px}
+.flash .phrase{font-family:var(--read);font-size:29px;line-height:1.25;font-weight:500;letter-spacing:-.015em}
+@media(max-width:480px){.flash .phrase{font-size:24px}}
+@media(max-width:520px){
+  main{padding:14px 12px 90px}
+  .card{padding:14px}
+  .top-in{padding:8px 12px 0}
+  .meta{gap:10px;font-size:11.5px}
+  .grade{grid-template-columns:repeat(2,1fr)}
+  .quote{font-size:17px}
+  .flash{min-height:170px;padding:20px 12px}
+  .timer{font-size:36px}
+}
+.flash .prompt{color:var(--muted);font-size:13px;margin-top:14px}
+.back{text-align:left;border-top:1px solid var(--line);margin-top:18px;padding-top:16px}
+.back dt{font-size:11.5px;letter-spacing:.02em;color:var(--muted);font-weight:700;margin-top:12px}
+.back dt:first-child{margin-top:0}
+.back dd{margin:3px 0 0;font-family:var(--read);font-size:16.5px}
+.grade{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:14px}
+.grade button{border-radius:8px;border:1px solid var(--line2);background:var(--surface);padding:10px 4px;font-size:13px;font-weight:600;line-height:1.2}
+.grade button small{display:block;font-weight:400;font-size:11px;color:var(--muted);margin-top:3px;font-variant-numeric:tabular-nums}
+.grade button:hover{border-color:var(--ink)}
+.grade .g1:hover{border-color:var(--warn);color:var(--warn)}
+.grade .g4:hover{border-color:var(--accent);color:var(--accent)}
+
+/* progress bars */
+.bar{height:7px;background:var(--surface2);border-radius:999px;overflow:hidden;border:1px solid var(--line)}
+.bar i{display:block;height:100%;background:var(--accent)}
+.lvlrow{display:flex;align-items:center;gap:10px;margin-bottom:7px;font-size:13px}
+.lvlrow .nm{width:126px;max-width:38vw;flex:none;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lvlrow .bar{flex:1}
+.lvlrow .n{width:30px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+
+/* chat */
+.chat{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+.msg{max-width:88%;padding:11px 14px;border-radius:12px;font-family:var(--read);font-size:16.5px;line-height:1.5;white-space:pre-wrap}
+.msg.ai{background:var(--surface2);border:1px solid var(--line);border-bottom-left-radius:3px;align-self:flex-start}
+.msg.me{background:var(--accent-soft);color:var(--ink);border-bottom-right-radius:3px;align-self:flex-end}
+.msg.sys{align-self:stretch;max-width:100%;font-family:var(--ui);font-size:13.5px;background:transparent;border:1px dashed var(--line2);color:var(--muted)}
+.opt{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line2);border-radius:9px;padding:11px 13px;margin-bottom:7px;font-family:var(--read);font-size:16.5px;line-height:1.4}
+.opt:hover{border-color:var(--ink)}
+.opt .k{font-family:var(--ui);font-weight:700;font-size:12px;color:var(--muted);margin-right:8px}
+.opt.pick-ok{border-color:var(--accent);background:var(--accent-soft)}
+.opt.pick-no{border-color:var(--warn);background:var(--warn-soft)}
+.opt[disabled]{cursor:default;opacity:.85}
+
+/* feedback blocks */
+.fb{border-left:3px solid var(--line2);padding-left:12px;margin:12px 0}
+.fb.ok{border-color:var(--accent)}
+.fb.fix{border-color:var(--warn)}
+.fb h4{font-size:12.5px;color:var(--muted);letter-spacing:.01em;margin-bottom:3px}
+.fb .en{font-size:16.5px}
+.strike{color:var(--muted);text-decoration:line-through;text-decoration-thickness:1px}
+.scoreline{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;padding:5px 0;border-bottom:1px dotted var(--line)}
+.scoreline b{font-weight:600}
+.timer{font-family:var(--read);font-size:44px;font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1}
+.rec{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--warn);margin-right:7px;vertical-align:middle;animation:pulse 1.4s infinite}
+@keyframes pulse{50%{opacity:.25}}
+.skel{color:var(--muted);font-size:14px}
+.err{background:var(--warn-soft);border:1px solid transparent;color:var(--warn);padding:10px 12px;border-radius:8px;font-size:13.5px;margin:10px 0}
+.plan{width:100%;border-collapse:collapse;font-size:13.5px}
+.plan td,.plan th{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+.plan th{color:var(--muted);font-weight:600;font-size:12px}
+.plan tr.now{background:var(--accent-soft)}
+.plan tr.now td{border-color:transparent}
+.streakdots{display:flex;gap:3px;flex-wrap:wrap;margin-top:6px}
+.streakdots i{width:11px;height:11px;border-radius:3px;background:var(--surface2);border:1px solid var(--line)}
+.streakdots i.on{background:var(--accent);border-color:transparent}
+.foot{text-align:center;color:var(--muted);font-size:12px;padding:20px 0 0}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="brand">Kim — <em>your personal English coach</em></div>
+    <div class="meta">
+      <span>Day <b id="m-day">1</b>/30</span>
+      <span>Cycle <b id="m-cycle">1</b></span>
+      <span>Streak <b id="m-streak">0</b></span>
+      <span><b id="m-level">B1</b></span>
+    </div>
+  </div>
+  <nav class="tabs" role="tablist" id="tabs">
+    <button class="tab" role="tab" data-v="cards" aria-selected="true">Phrase memory<span class="dot"></span></button>
+    <button class="tab" role="tab" data-v="write" aria-selected="false">Writing<span class="dot"></span></button>
+    <button class="tab" role="tab" data-v="speak" aria-selected="false">Speak + listen<span class="dot"></span></button>
+    <button class="tab" role="tab" data-v="talk" aria-selected="false">Conversation<span class="dot"></span></button>
+    <button class="tab" role="tab" data-v="prog" aria-selected="false">Progress<span class="dot"></span></button>
+  </nav>
+</header>
+
+<main>
+  <div id="daily-strip"></div>
+  <section id="v-cards"></section>
+  <section id="v-write" hidden></section>
+  <section id="v-speak" hidden></section>
+  <section id="v-talk" hidden></section>
+  <section id="v-prog" hidden></section>
+  <div class="foot" id="foot"></div>
+</main>
+<script>
+/* ============================================================
+   Kim — personal English coach: fluency + active vocabulary trainer
+   Part 1: content bank, state, storage, SRS, AI bridge
+   ============================================================ */
+"use strict";
+const BUILD = "2026-09-18 · quiz on watch & listen, orange theme";
+
+/* ---------- seed phrase bank ----------
+   [phrase, meaning, example, [variations], spokenForm, register, naturalness, commonMistake, cefr, category] */
+const REG = {c:"Casual", n:"Neutral", p:"Professional", f:"Formal", a:"Academic", vi:"Very informal"};
+const NAT = {3:"Natural", 4:"Very natural", 5:"Native-like"};
+
+const SEED = [
+// --- everyday conversation ---
+["I've been pretty busy lately.","Your recent life has been full — the standard honest answer to \"what have you been up to?\"","\"How've you been?\" \"Busy, actually. I've been pretty busy lately with work.\"",["I've been really busy lately.","I've been pretty tired lately.","I've been feeling stressed lately.","I've been trying to exercise more lately."],"I've been pretty busy lately → \"Ive been pritty bizzy lately\" (been is reduced to /bɪn/)","n",5,"\"I am busy this these days\" — present perfect continuous + lately, not present simple.","B1","Small talk"],
+["What have you been up to?","A warm, open \"what's new with you?\" — wider than \"what are you doing?\"","\"Hey! Long time. What have you been up to?\"",["What've you been up to lately?","What are you up to this weekend?","What was he up to?"],"\"Whatcha been up to?\"","c",5,"\"What are you did?\" — keep the fixed chunk *be up to*.","B1","Small talk"],
+["Not much, just the usual.","A light, natural answer when nothing special has happened.","\"What have you been up to?\" \"Not much, just the usual — work, gym, sleep.\"",["Nothing much, really.","Same as always.","The usual, honestly."],"","c",5,"\"Nothing. I have no activity.\" sounds translated.","A2","Small talk"],
+["How's it going with…?","Asks for an update on something already known between you.","How's it going with the new apartment?",["How's it going with your thesis?","How did it go with the interview?","How's the new job going?"],"\"How's it goin' with…\"","c",4,"\"How is the situation of your apartment?\"","B1","Small talk"],
+["Something came up.","A polite, complete reason for cancelling without explaining.","I can't make it tonight — something came up at work.",["Something's come up.","Something urgent came up.","If anything comes up, text me."],"","n",5,"\"Something is happened to me.\"","B1","Making plans"],
+["Can we push it to…?","Ask to move a meeting or plan later.","Can we push it to Thursday? I'm swamped tomorrow.",["Can we move it to next week?","Can we push it back an hour?","Let's push it to after lunch."],"","n",4,"\"Can we transfer the schedule?\" — *push* or *move*, not *transfer*.","B1","Making plans"],
+["Let me get back to you on that.","You need time before answering — buys time politely and professionally.","Good question. Let me get back to you on that by Friday.",["I'll get back to you.","Let me check and get back to you.","Can I get back to you tomorrow?"],"\"Lemme get back to you.\"","p",5,"\"I will return to you.\" — *get back to*, not *return*.","B1","Work"],
+["Sorry, could you say that again?","The natural repair when you didn't catch something.","Sorry, could you say that again? It's a bit noisy here.",["Sorry, I didn't catch that.","Could you repeat that, please?","Sorry, what was that?"],"","n",5,"\"Repeat again please\" — *repeat* already means again.","A2","Clarifying"],
+["Do you mind if I…?","A soft way to ask permission. Note: \"No\" = permission granted.","Do you mind if I join you?",["Do you mind if I open the window?","Would you mind if I left early?","Do you mind waiting a minute?"],"\"D'you mind if I…\"","n",5,"Answering \"Yes\" when you mean \"go ahead\" — say \"Not at all.\"","B1","Politeness"],
+["I'd rather not, if that's okay.","Declines something without giving a reason, and stays warm.","\"Want to talk about it?\" \"I'd rather not, if that's okay.\"",["I'd rather stay in tonight.","I'd rather not say.","I'd rather we talked tomorrow."],"","n",5,"\"I prefer not\" is understandable but stiff in speech.","B2","Declining"],
+["I've got to run.","Ends a conversation naturally when you're short on time.","This was great — I've got to run, but let's catch up soon.",["I should get going.","I'd better head off.","I have to run, sorry!"],"\"I gotta run.\"","c",5,"\"I will go now\" ends things abruptly.","B1","Ending conversations"],
+["Nice catching up with you.","Warm close after talking with someone you hadn't seen in a while.","Nice catching up with you — say hi to your mom for me.",["Good catching up.","Let's catch up soon.","We should catch up properly sometime."],"","c",5,"\"Nice to meet you\" — only for the first meeting.","B1","Ending conversations"],
+["No worries at all.","Relaxed \"it's fine\" — after thanks or a small apology.","\"Sorry I'm late!\" \"No worries at all.\"",["No worries.","Don't worry about it.","It's all good."],"","c",5,"\"You're welcome\" is fine but more formal and answers thanks only.","A2","Responding"],
+["Thanks for bearing with me.","Thanks someone for their patience while you sorted something out.","Thanks for bearing with me while I fixed the file.",["Thanks for your patience.","Bear with me for a second.","Thanks for waiting."],"","p",4,"\"Thanks for your understanding of my slowness.\"","B2","Politeness"],
+
+// --- reactions ---
+["That makes sense.","Signals you followed the logic and accept it.","Ah, that makes sense — I was wondering why it failed.",["That makes a lot of sense.","That doesn't make sense to me.","Makes sense."],"","n",5,"\"It is logical.\" sounds like a textbook.","B1","Reactions"],
+["Fair enough.","Accepts someone's point or decision, even if you'd choose differently.","\"I just don't enjoy big parties.\" \"Fair enough.\"",["Fair point.","That's fair.","Fair enough, I get it."],"","c",5,"Don't use it to agree enthusiastically — it's mild acceptance.","B2","Reactions"],
+["I hadn't thought about it that way.","Concedes that someone gave you a new angle — a C1 conversational move.","Huh. I hadn't thought about it that way.",["I'd never thought of it like that.","That's one way to look at it.","I hadn't considered that."],"","n",5,"Wrong tense: \"I didn't think about it\" changes the meaning.","B2","Reactions"],
+["That's a good point.","Credits the other person before you add or push back.","That's a good point — although I'd still argue the cost matters more.",["Good point.","That's a fair point.","You raise a good point."],"","n",5,"Saying it to everything makes it meaningless.","B1","Reactions"],
+["It depends.","Refuses a yes/no when the answer is conditional. Follow it with the condition.","\"Is it worth it?\" \"It depends — on how often you'd actually use it.\"",["It depends on the situation.","That depends.","It kind of depends."],"","n",5,"Stopping at \"it depends\" without saying on what.","B1","Reactions"],
+["I know what you mean.","Shows real empathy — you've felt the same thing.","I know what you mean. The first month was rough for me too.",["I know exactly what you mean.","I get what you mean.","I hear you."],"","c",5,"\"I know\" alone can sound dismissive.","B1","Reactions"],
+["Come to think of it…","Introduces something you just remembered mid-conversation.","Come to think of it, she did mention that last week.",["Now that I think about it…","Actually, come to think of it…","Thinking about it…"],"","c",5,"\"If I come to think\" — the chunk is fixed.","B2","Storytelling"],
+["That reminds me…","Links what you're about to say to what the other person just said.","That reminds me — did you ever send that email?",["That reminds me of something.","Which reminds me…","Speaking of which…"],"","c",5,"\"It makes me remember\" is understandable but not idiomatic.","B1","Storytelling"],
+["No way!","Strong surprise or disbelief. Casual only.","\"I got the job.\" \"No way! Congratulations!\"",["No way, really?","You're kidding.","Get out of here!"],"","vi",5,"Don't use it with a client or a professor.","B1","Reactions"],
+
+// --- fluency chunks / hedging ---
+["To be honest…","Marks the sentence as your unguarded opinion — softens something slightly negative.","To be honest, I didn't enjoy it as much as I expected.",["Honestly…","To be perfectly honest…","If I'm being honest…"],"\"To be honest\" → \"tbh\" in writing only","c",5,"Overusing it makes everything sound like a confession.","B1","Fluency chunks"],
+["The thing is…","Introduces the real problem or the complication.","I'd love to come. The thing is, I'm working that weekend.",["The thing is, it's expensive.","Here's the thing…","The problem is…"],"","c",5,"\"The thing is that is…\" — just one *is*.","B2","Fluency chunks"],
+["What I'm trying to say is…","Repairs and refocuses when your first attempt came out messy.","What I'm trying to say is, the timing is the real issue.",["What I mean is…","In other words…","Let me put it another way."],"","n",5,"Not for writing — it's a spoken repair.","B1","Paraphrasing"],
+["Let me think for a second.","Buys thinking time out loud instead of freezing in silence.","Let me think for a second… okay, I'd probably go with the second option.",["Let me think.","Give me a second.","Hmm, let me see."],"","c",5,"Silence while you translate is what makes you sound less fluent.","A2","Fluency chunks"],
+["If I remember correctly…","Hedges a fact you're fairly but not fully sure about.","If I remember correctly, it opens at nine.",["If I recall correctly…","As far as I remember…","From what I remember…"],"","n",4,"\"If I don't forget\" means something else.","B2","Hedging"],
+["As far as I know…","Limits a claim to your own knowledge — protects you if you're wrong.","As far as I know, nothing's changed.",["As far as I'm aware…","From what I've heard…","Last I checked…"],"","n",5,"\"As far as I know that…\" — no *that*.","B2","Hedging"],
+["I'm not really sure, but…","Offers an opinion while admitting uncertainty — keeps you talking.","I'm not really sure, but I think it's around two hours.",["I could be wrong, but…","Don't quote me on this, but…","I'm not certain, but…"],"","c",5,"Staying silent because you're unsure costs you more than hedging.","B1","Hedging"],
+["More or less.","\"Roughly / basically yes\" — approximation.","\"So it's finished?\" \"More or less. Just the last section left.\"",["Pretty much.","Kind of.","Roughly, yeah."],"","c",5,"\"More and less\" is not an expression.","B1","Fluency chunks"],
+["kind of / sort of","Softens an adjective or a claim. Extremely common in speech.","It was kind of disappointing, actually.",["I sort of expected that.","It's kind of a big deal.","I kind of agree."],"\"kinda\" / \"sorta\"","c",5,"In formal writing use *somewhat* or *slightly*.","B1","Fluency chunks"],
+
+// --- linking ---
+["so (result)","The everyday spoken connector for result. Beats *therefore* in conversation.","I was really tired, so I decided to go home.",["…, so I just left.","…, so we'll try again tomorrow.","So what I did was…"],"","c",5,"Forcing \"Therefore, I went home\" into casual speech sounds robotic.","A2","Linking"],
+["even though","Concedes a fact that makes the main clause surprising. Stronger than *although*.","Even though I was exhausted, I still went.",["Even though it was raining, we walked.","She stayed, even though she didn't have to."],"","n",5,"\"Even though\" + \"but\" in the same sentence — pick one.","B1","Linking"],
+["That's why…","Points back to the reason you just gave.","Traffic was insane. That's why I'm late.",["That's why I said no.","That's why it matters.","Which is why I asked."],"","c",5,"\"That is the reason why that…\" — trim it.","B1","Linking"],
+["On top of that…","Adds another point, usually another burden or bonus.","The flight was delayed. On top of that, they lost my bag.",["Besides that…","And on top of everything…","Plus…"],"","c",4,"Not for the *first* item in a list.","B2","Linking"],
+["At the same time…","Introduces a tension: two true things pulling different ways.","I want the promotion. At the same time, I'm not sure I want the hours.",["Then again…","That said…","On the other hand…"],"","n",5,"Don't use it to mean *simultaneously* in time here — this is rhetorical.","B2","Linking"],
+["…, though.","Sentence-final *but* — very common in speech, softer than *however*.","It's expensive. It's worth it, though.",["I liked it, though.","It was fun, though.","Not today, though."],"","c",5,"\"Though\" at the end of a written formal sentence is too casual.","B2","Linking"],
+["In other words…","Restates your idea more simply — a key paraphrasing move.","The numbers dropped for three quarters. In other words, we have a problem.",["Basically…","Put simply…","That is to say…"],"","n",5,"Following it with the *same* words defeats the purpose.","B2","Paraphrasing"],
+["Anyway…","Closes a digression and returns to the main thread.","…anyway, that's why I couldn't come.",["Anyway, where was I?","Anyways (very informal)","So anyway…"],"","c",5,"In formal writing, use *in any case*.","B1","Linking"],
+["By the way…","Introduces a side comment that's not the main topic.","By the way, did you get my message?",["Oh, by the way…","Incidentally (formal)","Before I forget…"],"\"BTW\" in writing","c",5,"Using it for your *main* point undersells it.","B1","Linking"],
+["As a result…","Formal result connector — for writing and presentations.","Costs rose sharply. As a result, we paused hiring.",["Consequently…","As a result of the delay…","Which resulted in…"],"","f",4,"Using it in casual chat where *so* fits better.","B2","Linking"],
+["whereas","Contrasts two things in one sentence. Written and formal speech.","He prefers working late, whereas I'd rather start early.",["…, whereas the second option is cheaper.","While I like the idea, the cost worries me."],"","f",4,"Not interchangeable with *however* — *whereas* joins clauses.","B2","Linking"],
+["…, which is why…","Elegant way to link a fact to its consequence in one sentence.","The deadline moved up, which is why everyone's stressed.",["…, which is why I called.","…, which explains the delay."],"","n",5,"Don't add *that*: \"which is why that\" is wrong.","C1","Linking"],
+["not to mention","Adds a further point that almost speaks for itself.","It's slow and unreliable, not to mention expensive.",["…, not to mention the noise.","Not to mention the fact that nobody asked."],"","n",4,"Needs a noun phrase or *the fact that* after it.","C1","Linking"],
+
+// --- grammar patterns ---
+["I've been meaning to…","Something you intended to do for a while and still haven't done.","I've been meaning to call you, actually.",["I've been meaning to start running.","I've been meaning to ask you something.","I'd been meaning to fix it for months."],"","c",5,"\"I mean to call you\" loses the \"for a while now\" feeling.","B2","Grammar patterns"],
+["I used to…","A past habit or state that isn't true now.","I used to hate coffee. Now I can't function without it.",["I used to live there.","I didn't use to like it.","Did you use to work nights?"],"\"I useta…\"","n",5,"Negative/question form is *use to*, not *used to*.","B1","Grammar patterns"],
+["I'm used to…","Something is familiar now; it doesn't bother you. Followed by a noun or -ing.","I'm used to waking up early.",["I'm not used to the heat.","I'm getting used to it.","You'll get used to it."],"","n",5,"\"I'm used to wake up\" — needs *waking*.","B1","Grammar patterns"],
+["I was supposed to…","An expectation or plan that didn't happen.","I was supposed to hand it in yesterday.",["You were supposed to call me.","It was supposed to rain.","We're supposed to meet at six."],"\"s'posed to\" / \"sposta\"","n",5,"\"I was suppose to\" — keep the *-d*.","B1","Grammar patterns"],
+["I ended up…","How things turned out, often unexpectedly. Followed by -ing or a noun.","We ended up staying until midnight.",["I ended up buying it anyway.","He ended up in Cebu.","It ended up being fine."],"","c",5,"\"I ended to stay\" — it takes *-ing*.","B2","Grammar patterns"],
+["I should've…","Regret about the past.","I should've left earlier.",["I shouldn't have said that.","You should've told me.","We should've booked ahead."],"\"I shoulda…\"","c",5,"\"I should have went\" — use the past participle: *gone*.","B2","Grammar patterns"],
+["If I had known…, I would have…","Third conditional — regret about an unreal past.","If I had known you were coming, I would have waited.",["If I'd known, I'd have said something.","If she hadn't helped, I would've failed."],"\"If I'd known, I would've…\"","n",4,"\"If I would have known\" is common in speech but marked as an error in writing.","B2","Grammar patterns"],
+["It's not that…, it's just that…","Corrects a wrong assumption about your feelings — a precise, adult move.","It's not that I don't want to go, it's just that I'm exhausted.",["It's not that I disagree, it's just that the timing is bad."],"","n",5,"Dropping the second half leaves the thought unfinished.","C1","Grammar patterns"],
+["I'd rather…","States a preference. Followed by a bare verb.","I'd rather walk than wait for a jeep.",["I'd rather not.","I'd rather you didn't.","I'd rather have stayed home."],"\"I'd rather…\"","n",5,"\"I'd rather to walk\" — no *to*.","B2","Grammar patterns"],
+["I'm about to…","You're on the point of doing something, right now.","I'm about to head out — can I call you back?",["I was about to say the same thing.","She's about to start."],"","n",5,"\"I'm about going\" — needs the infinitive.","B1","Grammar patterns"],
+["It turns out…","Reveals a fact that contradicts what was assumed.","It turns out the meeting was cancelled.",["As it turns out…","It turned out to be much easier.","Turns out I was wrong."],"","c",5,"\"It turns out that it was…\" is fine but often trimmed in speech.","B2","Grammar patterns"],
+["I keep + -ing","A repeated, often annoying, action.","I keep forgetting his name.",["I keep making the same mistake.","She keeps asking me about it.","It keeps happening."],"","c",5,"\"I keep to forget\" — always *-ing*.","B1","Grammar patterns"],
+["No matter how…","Something stays true regardless of degree or effort.","No matter how much I practise, I still hesitate.",["No matter what happens…","No matter how hard I try…","No matter who asks."],"","n",4,"\"No matter how much I will practise\" — present tense after it.","B2","Grammar patterns"],
+["The more…, the more…","Two things rise together.","The more I read in English, the easier writing gets.",["The more you practise, the less you translate.","The busier I get, the worse I sleep."],"","n",4,"Missing the second *the*: \"The more I read, more it's easy.\"","B2","Grammar patterns"],
+["What I like about it is…","Fronts your point for emphasis — a cleft sentence.","What I like about it is how simple it feels.",["What bothers me is the noise.","What I'd do is start smaller.","What happened was…"],"","n",5,"\"What I like about it is that how it is simple\" — one structure at a time.","B2","Grammar patterns"],
+["There's no point in + -ing","Says an action is useless.","There's no point in arguing about it now.",["There's no point in waiting.","What's the point of asking?"],"","c",4,"\"There's no point to argue\" — use *in* + *-ing*.","B2","Grammar patterns"],
+["I can't help + -ing","You can't stop yourself.","I can't help laughing when he does that.",["I couldn't help noticing…","I can't help but wonder."],"","n",4,"\"I can't help to laugh.\"","C1","Grammar patterns"],
+["I might as well…","Do it because there's no better option.","The bus won't come for an hour — I might as well walk.",["We might as well start.","You might as well ask."],"","c",4,"Using it for an enthusiastic choice; it implies resignation.","C1","Grammar patterns"],
+["By the time…","One thing had already happened before another.","By the time I got there, everyone had left.",["By the time you read this…","By the time we finished, it was dark."],"","n",5,"Tense mismatch: *had left*, not *left*, in the past version.","B2","Grammar patterns"],
+["It's worth + -ing","Says something deserves the effort.","It's worth checking before you pay.",["Is it worth going?","It's not worth the trouble.","Worth a try."],"","n",5,"\"It's worth to check.\"","B2","Grammar patterns"],
+
+// --- opinions & argument ---
+["I'd say…","Softens an opinion into a considered estimate.","I'd say it takes about two hours, depending on traffic.",["I'd say so.","I'd say it's worth it.","I'd say that's the main issue."],"","n",5,"\"I say\" alone sounds blunt or old-fashioned.","B1","Opinions"],
+["From what I've seen…","Grounds your opinion in personal observation.","From what I've seen, people give up in the second month.",["From what I've heard…","In my experience…","Based on what I've seen…"],"","n",4,"\"For what I see\" — wrong preposition.","B2","Opinions"],
+["I see your point, but…","Concedes before disagreeing — the polite disagreement formula.","I see your point, but I'd still start with the cheaper option.",["I take your point, but…","I get that, but…","True, but…"],"","p",5,"Disagreeing with no concession first can sound aggressive.","B2","Disagreeing"],
+["I'd push back on that.","Firm, professional disagreement. Confident without being rude.","I'd push back on that — the data doesn't really support it.",["I'd challenge that.","I'm not sure I agree.","I'd question that."],"","p",4,"Too strong for a first meeting with someone senior.","C1","Disagreeing"],
+["That said,…","Concedes what you just said and turns the argument.","It's expensive. That said, nothing else does the job.",["Having said that…","Then again…","Still…"],"","n",5,"Needs a real contrast after it.","C1","Linking"],
+["To be fair,…","Introduces a point in favour of the other side.","To be fair, they did warn us.",["In fairness…","To be fair to him…"],"","n",5,"Not the same as *to be honest*.","C1","Opinions"],
+["It comes down to…","Reduces a complicated issue to its core.","It comes down to whether you'll actually use it.",["It all comes down to money.","What it comes down to is trust."],"","n",4,"\"It comes down of\" — the preposition is *to*.","C1","Opinions"],
+["I'm torn between…","You can't decide between two attractive options.","I'm torn between staying here and moving to Manila.",["I'm torn.","I'm torn between the two."],"","n",4,"\"I'm torn about\" works, but *between* takes two options.","C1","Opinions"],
+["I'm inclined to think…","A cautious, educated-sounding opinion.","I'm inclined to think it's a timing problem, not a talent problem.",["I'm inclined to agree.","I tend to think…"],"","f",4,"Too formal for casual chat with friends.","C1","Opinions"],
+["I'll give you that.","Concedes one specific point in an argument.","It's slower, I'll give you that — but it's more accurate.",["Granted.","You've got a point there."],"","c",4,"Only works mid-argument, as a concession.","C1","Disagreeing"],
+
+// --- work / professional ---
+["I'll keep you posted.","Promises updates as things develop.","Nothing confirmed yet — I'll keep you posted.",["I'll keep you in the loop.","I'll let you know as soon as I hear.","Keep me posted."],"","p",5,"\"I will inform you continuously\" is stiff.","B2","Work"],
+["Just to clarify,…","Checks your understanding without sounding like you weren't listening.","Just to clarify, do you need this by Friday or Monday?",["Just so I understand…","Can I just check…","To make sure I've got this right…"],"","p",5,"Starting with \"I don't understand\" puts the fault on them.","B2","Clarifying"],
+["Could you walk me through…?","Asks for a step-by-step explanation — sounds curious, not lost.","Could you walk me through how the refund process works?",["Walk me through it.","Could you talk me through the numbers?"],"","p",5,"\"Can you explain me\" — it's *explain to me*.","B2","Work"],
+["I'm reaching out about…","Standard professional email opener.","I'm reaching out about the invoice we sent last week.",["I'm writing to ask about…","I wanted to follow up on…"],"","p",4,"\"I am reaching out for asking\" — use *about* + noun or *to* + verb.","B2","Work"],
+["Apologies for the delay.","Brief professional apology without over-explaining.","Apologies for the delay — here's the updated file.",["Sorry for the slow reply.","Thanks for your patience."],"","p",5,"Three sentences of apology weakens you. One is enough.","B2","Work"],
+["Please let me know if that works for you.","Standard closing that invites a yes or a counter-offer.","I've put us down for Tuesday at 10. Please let me know if that works for you.",["Let me know if that suits you.","Does that work on your end?"],"","p",5,"\"Please response me\" — *respond*, or better, *let me know*.","B1","Work"],
+["I'll follow up on that.","Promises to chase something down.","I'll follow up on that and get you an answer today.",["Let me follow up with them.","Just following up on my last email."],"","p",5,"\"I will follow it up to you.\"","B2","Work"],
+
+// --- paraphrasing / survival ---
+["It's basically…","Starts a plain-language definition when you don't know the exact word.","It's basically a place where you leave your car overnight.",["It's basically like a…","Basically, it's when…"],"","c",5,"Freezing instead of describing is the real fluency killer.","B1","Paraphrasing"],
+["It's the kind of thing you use to…","Describes an object by its purpose.","It's the kind of thing you use to open bottles.",["It's a thing you use for cutting.","It's what you use when you…"],"","c",4,"\"It is a thing for to open\" — *for* + *-ing* or *to* + verb.","B1","Paraphrasing"],
+["It's similar to…, but…","Defines by comparison, then gives the difference.","It's similar to a taco, but the shell is soft and it's folded twice.",["It's like a…, except…","Think of it as a smaller…"],"","n",5,"Stopping at *similar to* without the difference leaves it vague.","B1","Paraphrasing"],
+["How do you say it when…?","Asks a native speaker for the word you're missing, without breaking the conversation.","How do you say it when a bus is completely full?",["What's the word for…?","Is there a word for…?","What do you call it when…?"],"","c",4,"Switching to your own language ends the English practice.","B1","Clarifying"],
+
+// --- storytelling ---
+["I was like…","Introduces speech or a reaction inside a story. Very informal.","So he says he's leaving, and I was like, \"Now? Really?\"",["She was like, \"No way.\"","I'm like, what am I supposed to do?"],"","vi",5,"Never in writing or professional speech.","B2","Storytelling"],
+["Out of nowhere,…","Something happened with no warning.","Out of nowhere, the power just went out.",["Out of the blue…","All of a sudden…","Next thing you know…"],"","c",5,"\"Suddenly\" is fine but flatter in a story.","B2","Storytelling"],
+["Long story short,…","Skips the details and jumps to the outcome.","Long story short, we missed the flight.",["To cut a long story short…","Anyway, long story short…"],"","c",5,"Using it and then telling the long story anyway.","B2","Storytelling"],
+["The next thing I knew,…","A dramatic jump in a story — you lost control of events.","The next thing I knew, we were on stage.",["Before I knew it…","The next thing you know…"],"","c",4,"\"The next thing I know\" — keep past tense in past stories.","C1","Storytelling"],
+["I'd just + past participle when…","Sets up a story: one thing had just finished when another began.","I'd just sat down when the phone rang.",["We'd just left when it started raining.","I'd just finished when he walked in."],"","n",4,"Using simple past for both actions loses the sequence.","B2","Storytelling"]
+];
+
+/* fallback banks used when Claude isn't available */
+const BANK = {
+  watch:[
+    ["Kung Fu Panda (2008)","the first 10 minutes — Po's dream and the noodle shop","fast casual speech, dropped 'g' endings, enthusiasm"],
+    ["The Office (US), S2E1","the cold open and Michael's speech","interruptions, sarcasm, awkward pauses"],
+    ["Inside Out (2015)","the first 12 minutes","emotional vocabulary, simple clear narration"],
+    ["Friends, S1E1","the coffee-shop opening scene","overlapping speech, reactions, question tags"],
+    ["Ratatouille (2007)","Remy's narration in the first 8 minutes","descriptive language, food vocabulary"],
+    ["Ted Lasso, S1E1","the arrival and first press conference","idioms, optimism, British vs American English"],
+    ["Avatar: The Last Airbender, S1E1","the opening 10 minutes","clear narration, storytelling structure"],
+    ["Brooklyn Nine-Nine, S1E1","the first 10 minutes","fast jokes, reduced speech, workplace banter"],
+    ["Up (2009)","the first 12 minutes (mostly wordless, then the letters)","tone and implication with few words"],
+    ["The Good Place, S1E1","Michael's explanation scene","explaining, defining, polite formality"],
+    ["Spider-Man: Into the Spider-Verse","the first 10 minutes","teen slang, narration, rhythm"],
+    ["Modern Family, S1E1","the first 10 minutes","interviews to camera, family small talk"]
+  ],
+  pods:[
+    ["All Ears English","conversational American English, two hosts, ~15 min","B1–B2"],
+    ["The Daily (NY Times)","news interviews, clear but fast, ~25 min","B2–C1"],
+    ["Luke's English Podcast","long-form British English, storytelling","B1–C1"],
+    ["How I Built This","founder interviews, storytelling and business vocabulary","B2–C1"],
+    ["Stuff You Should Know","explaining complex things casually, ~45 min","B2"],
+    ["Hidden Brain","psychology, careful academic-but-warm register","C1"],
+    ["6 Minute English (BBC)","short, scripted, vocabulary focus","B1"],
+    ["Conan O'Brien Needs A Friend","fast comedy conversation, interruptions","C1–C2"],
+    ["Freakonomics Radio","argument structure, interview questions","C1"],
+    ["The Rest Is History","long, discursive, advanced vocabulary","C1–C2"]
+  ],
+  tt:[
+    ["She sells seashells by the seashore.","easy","/s/ vs /ʃ/"],
+    ["Red lorry, yellow lorry.","easy","/r/ and /l/"],
+    ["A proper copper coffee pot.","moderate","/p/ and /k/"],
+    ["Three thin thieves thought a thousand thoughts.","moderate","/θ/"],
+    ["The thirty-three thieves thought that they thrilled the throne.","difficult","/θr/"],
+    ["Peter Piper picked a peck of pickled peppers.","moderate","/p/ aspiration"],
+    ["Betty Botter bought some butter, but she said the butter's bitter.","difficult","/b/ and /t/ flap"],
+    ["Which witch switched the Swiss wristwatches?","difficult","/w/ vs /v/, /tʃ/"],
+    ["Fresh French fried fly fritters.","difficult","/f/ and /fr/"],
+    ["Six sleek swans swam swiftly southwards.","moderate","/sw/ clusters"],
+    ["Truly rural.","difficult","/r/ and /l/ together"],
+    ["I wish to wash my Irish wristwatch.","difficult","/ʃ/ and /r/"],
+    ["Eleven benevolent elephants.","moderate","/l/ and /v/"],
+    ["Rarely rural, really regularly.","advanced","/r/ chains"],
+    ["The sixth sick sheikh's sixth sheep's sick.","advanced","/s/, /ʃ/, /ks/"]
+  ],
+  write:[
+    "Describe a day last week that didn't go as planned.",
+    "Something you've been meaning to do for months — and why you haven't.",
+    "Explain your job to someone who has never heard of it.",
+    "A decision you regret. What would you do differently?",
+    "Argue against something most people around you believe.",
+    "Describe a place you know well so that a stranger can picture it.",
+    "Write a message cancelling plans without giving the real reason.",
+    "Compare two things you use every day and say which is better.",
+    "Tell the story of the last time you were genuinely surprised.",
+    "Explain a problem at work and the solution you'd propose.",
+    "What advice would you give your 18-year-old self?",
+    "Describe a person you admire without using the word 'good'.",
+    "Write a short professional email asking for a deadline extension.",
+    "What would change about your daily life if you woke up fluent tomorrow?",
+    "Explain why a popular thing is overrated.",
+    "Describe a meal you'll never forget.",
+    "A time you had to explain something difficult to someone.",
+    "What does 'success' mean to you, and has that changed?",
+    "Write about a habit you're trying to break.",
+    "Describe your ideal working day, hour by hour."
+  ],
+  speak:[
+    "Describe your last weekend in as much detail as you can.",
+    "Explain how to get from your home to the nearest market.",
+    "Tell a story about a time you got lost.",
+    "Compare living in a city with living in a province.",
+    "Give your opinion: is remote work better than office work?",
+    "Explain something you're good at to a complete beginner.",
+    "Describe a photo you love without showing it.",
+    "Persuade me to visit your hometown.",
+    "Talk about a book, film or show that changed your mind about something.",
+    "Solve this: your flight is cancelled and you have an interview tomorrow. Talk through your options.",
+    "Explain the biggest difference between your generation and your parents'.",
+    "Describe a difficult conversation you handled well.",
+    "Role-play: you're apologising to a client for a late delivery.",
+    "What's something most people in your field believe that you think is wrong?",
+    "Describe your routine on a bad day versus a good day.",
+    "Explain a local tradition to a foreign friend.",
+    "Talk about money without using numbers.",
+    "Argue for the opposite of what you actually believe about social media.",
+    "Summarise the last piece of news you read.",
+    "Describe the best decision you made this year."
+  ]
+};
+
+const PHASES = [
+  {d:[1,7],   name:"Foundation and automaticity", focus:"everyday phrases, sentence frames, contractions, basic linking, fillers, natural answers", speak:"30s → 1 min", write:"30–75 words", convo:"Step 1", goal:"Stop translating word by word. Start thinking in chunks.", wmin:30, wmax:75, secs:[30,60], stage:1},
+  {d:[8,14],  name:"Conversational control", focus:"storytelling, opinions, explanations, follow-up questions, reactions, giving reasons", speak:"1–2 min", write:"75–120 words", convo:"Step 1 → 2", goal:"Keep a conversation going without hunting for language.", wmin:75, wmax:120, secs:[60,120], stage:2},
+  {d:[15,21], name:"Fluency and flexibility", focus:"paraphrasing, describing unknown words, comparisons, hypotheticals, workplace communication", speak:"2–3 min", write:"100–175 words", convo:"Step 2", goal:"Keep communicating even when you don't know the exact word.", wmin:100, wmax:175, secs:[120,180], stage:2},
+  {d:[22,30], name:"Independent expression", focus:"spontaneous speaking, nuanced opinions, complex structures, idiom, defending a position", speak:"3–5 min", write:"150–250 words", convo:"Step 2 → 3", goal:"Express ideas naturally without translating sentence by sentence.", wmin:150, wmax:250, secs:[180,300], stage:3}
+];
+const LVL_NAMES = ["","Recognition","Understanding","Recall","Controlled use","Active use","Spontaneous use","Automatic"];
+const ERR_TAGS = ["articles","prepositions","verb tense","subject–verb agreement","word order","plurals","pronouns","fragments","conjunctions","linking words","collocations","word choice","unnatural phrasing","repetition","pronunciation","hesitation","direct translation","too formal","sentence variety"];
+
+/* ---------- utilities ---------- */
+const $ = (s,r)=> (r||document).querySelector(s);
+const el = (t,c,x)=>{const n=document.createElement(t); if(c)n.className=c; if(x!=null)n.textContent=x; return n;};
+const todayKey = ()=> new Date().toLocaleDateString("en-CA");
+const dayDiff = (a,b)=> Math.round((new Date(b+"T00:00")-new Date(a+"T00:00"))/864e5);
+const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const words = s => (String(s||"").trim().match(/[\w''-]+/g)||[]).length;
+const rnd = a => a[Math.floor(Math.random()*a.length)];
+function hash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return Math.abs(h);}
+function pickDaily(arr, dayN, avoid){ // deterministic-ish rotation that never repeats yesterday
+  const i = (hash(todayKey()+"|"+arr.length) + dayN) % arr.length;
+  let v = arr[i];
+  if(avoid!=null && JSON.stringify(v)===JSON.stringify(avoid)) v = arr[(i+1)%arr.length];
+  return v;
+}
+function normalize(s){
+  return " "+String(s||"").toLowerCase()
+    .replace(/[''`]/g,"'").replace(/[^a-z' ]+/g," ")
+    .replace(/\bi am\b/g,"i'm").replace(/\bi have\b/g,"i've").replace(/\bi would\b/g,"i'd").replace(/\bi will\b/g,"i'll")
+    .replace(/\bgoing to\b/g,"gonna").replace(/\bwant to\b/g,"wanna").replace(/\s+/g," ")+" ";
+}
+/* does the text contain the phrase? tolerant of gaps (…), templates (+ -ing),
+   notes in brackets, and slash alternatives */
+function phraseParts(phrase){
+  return String(phrase).split(" / ").map(alt=>
+    alt.replace(/\(.*?\)/g,"")          // "so (result)" -> "so"
+       .replace(/\s*\+.*$/,"")           // "I keep + -ing" -> "I keep"
+       .split(/…|\.\.\./)
+       .map(x=>normalize(x).trim())
+       .filter(x=>x.length>3)
+  ).filter(parts=>parts.length);
+}
+function matchable(phrase){ return phraseParts(phrase).length>0; }
+function usesPhrase(text, phrase){
+  const alts = phraseParts(phrase);
+  if(!alts.length) return false;
+  const t = normalize(text);
+  return alts.some(parts=>{
+    let from = 0;
+    for(const core of parts){
+      const idx = t.indexOf(" "+core, from);
+      if(idx<0) return false;
+      from = idx + core.length;
+    }
+    return true;
+  });
+}
+
+/* ---------- state ---------- */
+const NOW = ()=> Date.now();
+function freshState(){
+  return {
+    v:1, created:todayKey(), day:1, cycle:1, streak:0, lastDone:null, level:"B1",
+    cards:{}, nextId:1,
+    errors:{}, sessions:[], writing:[], speaking:[],
+    convo:{stage:1, turns:[], userTurns:0, lastPhrase:null},
+    daily:null, profile:null, assessments:[],
+    counts:{reviewed:0,recalled:0,used:0}, dismissed:{}
+  };
+}
+let S = freshState();
+let UID = null, DB = null, SAMPLE = null, SAMPLE_READY = false;
+
+function seedCards(){
+  SEED.forEach(r=>{
+    const id = "s"+hash(r[0]);
+    if(S.cards[id]) return;
+    S.cards[id] = {
+      id, p:r[0], m:r[1], e:r[2], v:r[3]||[], sp:r[4]||"", r:REG[r[5]]||"Neutral", n:NAT[r[6]]||"Natural",
+      mk:r[7]||"", cef:r[8]||"B1", cat:r[9]||"General",
+      due:null, iv:0, ease:2.5, reps:0, lapses:0, lvl:1, seen:0,
+      use:{prompt:0, write:0, speak:0, spon:0}, added:todayKey()
+    };
+  });
+}
+
+/* ---------- storage ---------- */
+const LSKEY = "de.fluency.v1";
+let saveTimer=null, saving=false, dirty=false;
+function trim(){
+  if(S.sessions.length>90) S.sessions = S.sessions.slice(-90);
+  if(S.writing.length>40) S.writing = S.writing.slice(-40);
+  if(S.speaking.length>40) S.speaking = S.speaking.slice(-40);
+  S.writing.forEach(w=>{ if(w.text && w.text.length>1200) w.text = w.text.slice(0,1200); });
+  S.speaking.forEach(w=>{ if(w.text && w.text.length>1200) w.text = w.text.slice(0,1200); });
+  if(S.convo.turns.length>40) S.convo.turns = S.convo.turns.slice(-40);
+}
+function save(){
+  dirty = true;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flush, 900);
+}
+async function flush(){
+  if(saving){ save(); return; }
+  saving = true; dirty=false;
+  trim();
+  try{ localStorage.setItem(LSKEY, JSON.stringify(S)); }catch(e){}
+  if(DB && UID){
+    try{ await DB.doc("data/users/"+UID+"/state").set({state:JSON.stringify(S), at:NOW()}); }
+    catch(e){ /* keep local copy */ }
+  }
+  saving = false;
+  if(dirty) save();
+}
+async function load(){
+  let local=null;
+  try{ local = JSON.parse(localStorage.getItem(LSKEY)||"null"); }catch(e){}
+  let remote=null;
+  if(DB && UID){
+    try{
+      const snap = await DB.doc("data/users/"+UID+"/state").get();
+      if(snap.exists){ const d=snap.data(); remote = JSON.parse(d.state||"null"); }
+    }catch(e){}
+  }
+  const chosen = (remote && local) ? ((remote.sessions||[]).length >= (local.sessions||[]).length ? remote : local) : (remote||local);
+  if(chosen && chosen.v){ S = Object.assign(freshState(), chosen); S.convo = Object.assign({stage:1,turns:[],userTurns:0}, chosen.convo||{}); }
+  seedCards();
+}
+
+/* ---------- SRS ---------- */
+function due(){
+  const t = todayKey();
+  return Object.values(S.cards).filter(c=> c.due && c.due<=t);
+}
+function newCards(n){
+  return Object.values(S.cards).filter(c=>!c.due)
+    .sort((a,b)=>{
+      const o = {A1:0,A2:1,B1:2,B2:3,C1:4,C2:5};
+      return (o[a.cef]-o[b.cef]) || (hash(a.id)%97)-(hash(b.id)%97);
+    }).slice(0,n);
+}
+function grade(c, g){ // 0 again 1 hard 2 good 3 easy
+  c.seen++; S.counts.reviewed++;
+  if(g===0){
+    c.lapses++; c.ease = Math.max(1.3, c.ease-0.2); c.iv = 0;
+    c.due = todayKey();
+    if(c.lvl>2) c.lvl = Math.max(2, c.lvl-1);
+  }else{
+    S.counts.recalled++;
+    if(g===1){ c.ease=Math.max(1.3,c.ease-0.15); c.iv = c.iv? Math.max(1, Math.round(c.iv*1.2)) : 1; }
+    else if(g===2){ c.iv = c.iv? Math.round(c.iv*c.ease) : 1; }
+    else { c.ease=Math.min(3.1,c.ease+0.15); c.iv = c.iv? Math.round(c.iv*c.ease*1.35) : 3; }
+    c.reps++;
+    const d = new Date(); d.setDate(d.getDate()+Math.max(1,c.iv));
+    c.due = d.toLocaleDateString("en-CA");
+    if(c.lvl<3 && (g>=2)) c.lvl = Math.min(3, c.lvl+1);
+    if(c.lvl<2) c.lvl = 2;
+  }
+  save();
+}
+function bumpLevel(c, to, why){
+  if(!c) return;
+  if(to>c.lvl){ c.lvl = Math.min(7,to); }
+  if(why) c.lastWhy = why;
+  save();
+}
+function markUse(c, kind){
+  if(!c) return;
+  c.use[kind] = (c.use[kind]||0)+1;
+  S.counts.used++;
+  if(kind==="prompt") bumpLevel(c,4);
+  if(kind==="write") bumpLevel(c,5);
+  if(kind==="speak") bumpLevel(c,5);
+  if(kind==="spon") bumpLevel(c, c.use.spon>=2 ? 7 : 6);
+  save();
+}
+function stateName(c){
+  if(!c.due) return "New";
+  if(c.lvl>=7) return "Automatic";
+  if(c.lvl>=6) return "Spontaneous";
+  if(c.lvl>=5) return "Active";
+  if(c.lvl>=4) return "Familiar";
+  return "Learning";
+}
+function activePool(n){ // phrases understood but not yet actively used — the ones to force out
+  return Object.values(S.cards).filter(c=>c.lvl>=2 && c.lvl<6)
+    .sort((a,b)=> (a.lvl-b.lvl) || (b.seen-a.seen)).slice(0,n);
+}
+function phase(){
+  const d = Math.min(30, Math.max(1, S.day));
+  return PHASES.find(p=> d>=p.d[0] && d<=p.d[1]) || PHASES[0];
+}
+function logError(tag){
+  if(!tag) return;
+  const t = String(tag).toLowerCase().trim();
+  const hit = ERR_TAGS.find(x=> t.includes(x) || x.includes(t));
+  const key = hit || t.slice(0,28);
+  S.errors[key] = (S.errors[key]||0)+1;
+}
+
+/* ---------- AI bridge ---------- */
+const COACH = [
+"You are Kim, an elite personal English coach inside a daily practice app. The learner is a Filipino adult, self-assessed B1, working toward C2.",
+"Priorities in order: speaking fluency and conversation, writing, then precision (vocabulary, idiom, register).",
+"Coaching rules you never break:",
+"- Be warm and be exact. Never say 'that sounds unnatural' without the rule, collocation or reason behind it.",
+"- Never let an error pass silently, but never dump every error. Pick the 2-4 that matter most: errors that block meaning or mark the speaker as a learner.",
+"- Praise specifically or not at all. 'Great job' is noise. Name the structure they got right and its level.",
+"- Teach chunks, not isolated words. Fluency comes from multi-word units.",
+"- Do not translate word by word. Explain how the chunk is used.",
+"- Do not inflate their level. Give evidence from what they actually produced.",
+"- Filipino-English features (e.g. 'for a while', 'fill up a form', 'Comfort Room') are fine locally; flag them only as 'reads differently internationally', never as stupid errors.",
+"- Prefer natural spoken English over textbook connectors: 'so' over 'therefore' in conversation.",
+"Every coaching turn ends by demanding output from the learner."
+].join("\n");
+
+function learnerBrief(){
+  const errs = Object.entries(S.errors).sort((a,b)=>b[1]-a[1]).slice(0,6).map(e=>e[0]+" ("+e[1]+")");
+  const act = activePool(8).map(c=>c.p);
+  const ph = phase();
+  return [
+    "LEARNER STATE",
+    "Estimated level: "+S.level+". Cycle "+S.cycle+", day "+S.day+" of 30. Phase: "+ph.name+" — "+ph.goal,
+    "Recurring errors so far: "+(errs.length?errs.join(", "):"none recorded yet"),
+    "Phrases they know but have not actively used yet: "+(act.length?act.join(" / "):"none"),
+    "Phrases already automatic: "+(Object.values(S.cards).filter(c=>c.lvl>=6).map(c=>c.p).slice(0,8).join(" / ")||"none")
+  ].join("\n");
+}
+
+async function initClaude(){
+  try{
+    if(!window.claude || !claude.use) return;
+    SAMPLE = await claude.use("sample");
+  }catch(e){ SAMPLE = null; }
+  SAMPLE_READY = true;
+  document.querySelectorAll("[data-needs-ai]").forEach(n=>{ n.hidden = !!SAMPLE; });
+  document.querySelectorAll("[data-ai-btn]").forEach(n=>{ n.disabled = !SAMPLE; });
+}
+function aiMsg(code){
+  return ({
+    not_granted:"Claude isn't allowed for this page, so AI feedback is off. Everything else still works.",
+    sampling_disabled:"Claude isn't available on this account. Flashcards, timers and tracking still work.",
+    rate_limited:"Too many requests for now. Wait a minute and try again.",
+    session_expired:"Your session expired — sign in to claude.ai again.",
+    refused:"Claude declined that one. Try rephrasing your answer.",
+    invalid_json:"The reply came back malformed. Try again.",
+    empty_completion:"No answer came back. Try again with a bit less text.",
+    cancelled:""
+  })[code] || "Something went wrong reaching Claude. Try again in a moment.";
+}
+async function ask(input, opts){
+  if(!SAMPLE) throw {code:"not_granted", message:"no sample"};
+  return SAMPLE(input, opts||{});
+}
+async function askJSON(input, opts){
+  if(!SAMPLE) throw {code:"not_granted", message:"no sample"};
+  return SAMPLE.json(input, opts||{});
+}
+/* ============================================================
+   Part 2: daily set, routing, phrase memory, writing
+   ============================================================ */
+
+/* ---------- daily set ---------- */
+function newDaily(){
+  const ph = phase();
+  const prev = S.daily || {};
+  const pool = activePool(30);
+  const targets = [];
+  const shuffled = pool.slice().sort(()=>Math.random()-0.5);
+  for(const c of shuffled){ if(targets.length<4) targets.push(c.id); }
+  const hidden = shuffled.slice(4,7).map(c=>c.id);
+  S.daily = {
+    date: todayKey(),
+    cards:{done:false, ids:null, goal:0},
+    writing:{ topic: pickDaily(BANK.write, S.day, prev.writing&&prev.writing.topic), targets, show: (S.day%3!==0), done:false, fb:null, text:"" },
+    speaking:{ topic: pickDaily(BANK.speak, S.day+3, prev.speaking&&prev.speaking.topic), secs: ph.secs[S.day%2], hidden, done:false, fb:null, text:"" },
+    listen:{ watch: pickDaily(BANK.watch, S.day, prev.listen&&prev.listen.watch), pod: pickDaily(BANK.pods, S.day, prev.listen&&prev.listen.pod), tt: pickDaily(BANK.tt, S.day, prev.listen&&prev.listen.tt), done:false, extra:null },
+    talk:{done:false},
+    any:false
+  };
+  S.counts = {reviewed:0, recalled:0, used:0};
+}
+function ensureDaily(){
+  if(S.daily && S.daily.date===todayKey()) return false;
+  if(S.daily && S.daily.any){
+    // the previous practice day is finished — advance the cycle counter
+    S.day++;
+    if(S.day>30){ S.day=1; S.cycle++; S.pendingAssessment=true; }
+  }
+  newDaily();
+  return true;
+}
+function touchDay(){
+  const t = todayKey();
+  if(S.lastDone!==t){
+    S.streak = (S.lastDone && dayDiff(S.lastDone,t)===1) ? S.streak+1 : 1;
+    S.lastDone = t;
+    S.sessions.push({d:t, day:S.day, cycle:S.cycle});
+  }
+  if(S.daily) S.daily.any = true;
+  save(); renderMeta();
+}
+function tasksDone(){
+  const d = S.daily||{};
+  return {
+    cards: !!(d.cards&&d.cards.done), write:!!(d.writing&&d.writing.done),
+    speak:!!(d.speaking&&d.speaking.done), listen:!!(d.listen&&d.listen.done), talk:!!(d.talk&&d.talk.done)
+  };
+}
+
+/* ---------- chrome ---------- */
+function renderMeta(){
+  $("#m-day").textContent = S.day;
+  $("#m-cycle").textContent = S.cycle;
+  $("#m-streak").textContent = S.streak;
+  $("#m-level").textContent = S.level;
+  const t = tasksDone();
+  const map = {cards:"cards", write:"write", speak:"speak", talk:"talk"};
+  document.querySelectorAll(".tab").forEach(b=>{
+    const v = b.dataset.v;
+    const pend = (v==="cards" && !t.cards) || (v==="write" && !t.write) || (v==="speak" && (!t.speak||!t.listen)) || (v==="talk" && !t.talk);
+    b.classList.toggle("pending", !!pend && v!=="prog");
+  });
+  renderStrip();
+}
+function renderStrip(){
+  const t = tasksDone(), d = S.daily;
+  const n = Object.values(t).filter(Boolean).length;
+  const host = $("#daily-strip");
+  host.innerHTML = "";
+  const c = el("div","card tight");
+  const hd = el("div","hd");
+  hd.appendChild(el("h2",null, n===5 ? "Today's practice is done." : "Today's practice"));
+  const sub = el("span","sub", n===5 ? "Come back tomorrow — the schedule handles the rest." : n+" of 5 finished");
+  hd.appendChild(sub); hd.appendChild(el("div","spacer"));
+  if(n===0){
+    const b = el("button","btn accent","Start today's practice");
+    b.onclick = ()=>{ touchDay(); go("cards"); };
+    hd.appendChild(b);
+  }
+  c.appendChild(hd);
+  const strip = el("div","today");
+  [["Phrases",t.cards,"cards"],["Writing",t.write,"write"],["Speaking",t.speak,"speak"],["Listening",t.listen,"speak"],["Conversation",t.talk,"talk"]]
+    .forEach(([nm,done,v])=>{
+      const ch = el("button","chip"+(done?" done":""),nm);
+      ch.style.cursor="pointer"; ch.onclick=()=>go(v);
+      strip.appendChild(ch);
+    });
+  c.appendChild(strip);
+  host.appendChild(c);
+}
+const VIEWS = {};
+let CUR = "cards";
+function go(v){
+  CUR = v;
+  document.querySelectorAll(".tab").forEach(b=> b.setAttribute("aria-selected", String(b.dataset.v===v)));
+  ["cards","write","speak","talk","prog"].forEach(k=> $("#v-"+k).hidden = (k!==v));
+  (VIEWS[v]||function(){})();
+  window.scrollTo({top:0, behavior:"instant"});
+}
+document.getElementById("tabs").addEventListener("click", e=>{
+  const b = e.target.closest(".tab"); if(b) go(b.dataset.v);
+});
+
+/* ---------- shared bits ---------- */
+function aiError(host, e){
+  if(e && e.code==="cancelled") return;
+  const d = el("div","err", aiMsg(e&&e.code));
+  host.appendChild(d);
+}
+function busy(btn, on, label){
+  if(!btn) return;
+  if(on){ btn.dataset.lbl = btn.textContent; btn.textContent = label||"Thinking…"; btn.disabled = true; }
+  else { btn.textContent = btn.dataset.lbl||btn.textContent; btn.disabled = false; }
+}
+function cardById(id){ return S.cards[id]; }
+function detailHTML(c){
+  return `
+  <dl class="back">
+    <dt>Meaning</dt><dd>${esc(c.m)}</dd>
+    <dt>Natural example</dt><dd>${esc(c.e)}</dd>
+    ${c.v&&c.v.length?`<dt>Variations</dt><dd>${c.v.map(v=>esc(v)).join("<br>")}</dd>`:""}
+    ${c.sp?`<dt>Spoken form</dt><dd>${esc(c.sp)}</dd>`:""}
+    ${c.mk?`<dt>Common mistake</dt><dd>${esc(c.mk)}</dd>`:""}
+  </dl>
+  <div class="row" style="margin-top:12px">
+    <span class="pill">${esc(c.r)}</span><span class="pill g">${esc(c.n)}</span>
+    <span class="pill">${esc(c.cef)}</span><span class="pill">${esc(c.cat)}</span>
+    <span class="pill y">${esc(LVL_NAMES[c.lvl]||"")}</span>
+  </div>`;
+}
+
+/* ============================================================
+   TAB 1 — PHRASE MEMORY
+   ============================================================ */
+let cur = null, shown = false;
+function buildQueue(){
+  const dq = S.daily.cards;
+  if(!dq.ids){
+    const fresh = newCards(6).map(c=>c.id);
+    const ids = due().map(c=>c.id).concat(fresh);
+    dq.ids = ids.sort(()=>Math.random()-0.5).slice(0,22);
+    dq.goal = dq.ids.length;
+    save();
+  }
+  dq.ids = dq.ids.filter(id=>!!S.cards[id]);
+  return dq.ids;
+}
+function queueLeft(){ return buildQueue().length; }
+VIEWS.cards = function(){
+  const host = $("#v-cards");
+  const ids = buildQueue();
+  host.innerHTML = "";
+  const dueN = due().length, newN = Object.values(S.cards).filter(c=>!c.due).length;
+  const head = el("div","card tight");
+  head.innerHTML = `<div class="hd"><h2>Phrase memory</h2><span class="sub">${ids.length} left today \u00b7 ${dueN} due \u00b7 ${newN} unseen in the bank</span><div class="spacer"></div></div>
+  <div class="note">Phrases, chunks and patterns \u2014 not isolated words. Grade honestly: the schedule only works if "Good" really means you recalled it.</div>`;
+  const bar = el("div","row"); bar.style.marginTop="10px";
+  const addb = el("button","btn ghost sm","Add new phrases for my weak spots"); addb.setAttribute("data-ai-btn",""); addb.disabled=!SAMPLE;
+  addb.onclick = ()=> expandDeck(addb, host);
+  bar.appendChild(addb);
+  head.appendChild(bar);
+  host.appendChild(head);
+
+  cur = ids.length ? S.cards[ids[0]] : null;
+  if(!cur){
+    const done = el("div","card");
+    done.innerHTML = `<div class="quote">Nothing left in the queue.</div>
+    <p class="note" style="margin-top:8px">Everything due today has been reviewed. The rest comes back on schedule \u2014 more cards tomorrow, not more today. Move on to writing: that's where these phrases become yours.</p>`;
+    const b = el("button","btn accent","Go to today's writing"); b.onclick=()=>go("write");
+    done.appendChild(b);
+    host.appendChild(done);
+    if(S.daily && !S.daily.cards.done){ S.daily.cards.done = true; touchDay(); renderMeta(); }
+    return;
+  }
+  shown = false;
+  drawCard(host);
+};
+function drawCard(host){
+  const c = cur;
+  const box = el("div","card");
+  box.innerHTML = `<div class="flash"><div class="phrase en">${esc(c.p)}</div>
+    <div class="prompt">${c.due? "Say the meaning and a sentence out loud — then check." : "New phrase. Read it aloud first."}</div></div>`;
+  const reveal = el("button","btn accent","Show the card");
+  reveal.style.width="100%";
+  reveal.onclick = ()=>{
+    if(shown) return; shown = true;
+    reveal.remove();
+    box.insertAdjacentHTML("beforeend", detailHTML(c));
+    box.appendChild(gradeRow());
+    if(c.lvl>=3) box.appendChild(challengeBlock(c));
+  };
+  box.appendChild(reveal);
+  host.appendChild(box);
+}
+function gradeRow(){
+  const g = el("div","grade");
+  const nx = (iv,ease,kind)=>{
+    const c = cur;
+    if(kind===0) return "today";
+    let v;
+    if(kind===1) v = c.iv? Math.max(1,Math.round(c.iv*1.2)):1;
+    else if(kind===2) v = c.iv? Math.round(c.iv*c.ease):1;
+    else v = c.iv? Math.round(c.iv*c.ease*1.35):3;
+    return v===1? "1 day" : v+" days";
+  };
+  [["Again","g1",0],["Hard","g2",1],["Good","g3",2],["Easy","g4",3]].forEach(([lbl,cls,k])=>{
+    const b = el("button",cls);
+    b.innerHTML = esc(lbl)+"<small>"+esc(nx(0,0,k))+"</small>";
+    b.onclick = ()=>{
+      const id = cur.id;
+      grade(cur,k);
+      const ids = S.daily.cards.ids.filter(x=>x!==id);
+      if(k===0) ids.push(id);              // "Again" comes back at the end of today's queue
+      S.daily.cards.ids = ids;
+      cur=null; touchDay(); save(); VIEWS.cards(); renderMeta();
+    };
+    g.appendChild(b);
+  });
+  return g;
+}
+function challengeBlock(c){
+  const w = el("div"); w.style.marginTop="14px";
+  w.innerHTML = `<hr class="sep"><label class="lab">Active-use challenge — write your own sentence with this phrase. Make it true about your life.</label>`;
+  const ta = el("textarea"); ta.rows=2; ta.placeholder="Your sentence…";
+  w.appendChild(ta);
+  const row = el("div","row"); row.style.marginTop="8px";
+  const b = el("button","btn sm","Check my sentence"); b.setAttribute("data-ai-btn",""); b.disabled=!SAMPLE;
+  const out = el("div");
+  b.onclick = async ()=>{
+    const txt = ta.value.trim();
+    out.innerHTML="";
+    if(!txt){ ta.focus(); return; }
+    if(matchable(c.p) && !usesPhrase(txt, c.p)){
+      out.innerHTML = `<div class="err">That sentence doesn't actually contain <b>${esc(c.p)}</b>. Use the phrase itself — that's the whole point of the drill.</div>`;
+      return;
+    }
+    busy(b,true,"Checking…");
+    try{
+      const r = await askJSON([{role:"user",content:
+        COACH+"\n\n"+learnerBrief()+
+        "\n\nThe learner was asked to use this phrase in their own sentence.\nPHRASE: "+c.p+"\nMEANING: "+c.m+
+        "\nTHEIR SENTENCE: "+txt+
+        "\n\nJudge whether they used the phrase correctly and naturally. Reply with ONLY this JSON:\n"+
+        '{"verdict":"correct|incorrect|awkward","fixed":"minimally corrected version, or their sentence unchanged","elevated":"how a C1 speaker would say the same thing","why":["one-line reason","optional second"],"praise":"one specific thing they got right, or empty string","errorTags":["articles"],"next":"a short follow-up prompt forcing them to use the phrase again about something else"}'
+      }],{modelTier:"quick", cache:false});
+      busy(b,false);
+      (r.errorTags||[]).forEach(logError);
+      const ok = r.verdict==="correct";
+      if(ok || r.verdict==="awkward") markUse(c,"prompt");
+      out.innerHTML = `
+        <div class="fb ${ok?"ok":"fix"}">
+          <h4>${ok?"Used correctly":"Nearly"}</h4>
+          ${r.praise?`<p class="note">${esc(r.praise)}</p>`:""}
+          ${r.fixed && r.fixed.trim()!==txt ? `<h4>Fixed</h4><div class="en">${esc(r.fixed)}</div>`:""}
+          ${r.elevated?`<h4>How a C1 speaker would say it</h4><div class="en">${esc(r.elevated)}</div>`:""}
+          ${(r.why||[]).length?`<h4>Why</h4><ul class="list">${(r.why||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
+          ${r.next?`<h4>Your turn again</h4><p class="note">${esc(r.next)}</p>`:""}
+        </div>`;
+      if(ok) out.insertAdjacentHTML("afterbegin",`<p class="note">Memory level: <b>${esc(LVL_NAMES[c.lvl])}</b></p>`);
+    }catch(e){ busy(b,false); aiError(out,e); }
+  };
+  row.appendChild(b);
+  const skip = el("button","btn ghost sm","Skip");
+  skip.onclick = ()=> w.remove();
+  row.appendChild(skip);
+  w.appendChild(row); w.appendChild(out);
+  return w;
+}
+async function expandDeck(btn, host){
+  busy(btn,true,"Writing new cards…");
+  const have = Object.values(S.cards).map(c=>c.p);
+  const weak = Object.entries(S.errors).sort((a,b)=>b[1]-a[1]).slice(0,4).map(e=>e[0]).join(", ")||"none yet";
+  try{
+    const r = await askJSON([{role:"user",content:
+      COACH+"\n\n"+learnerBrief()+
+      "\n\nWrite 8 NEW phrase cards for this learner. Target their recurring errors ("+weak+") and the next level up from "+S.level+
+      ". Teach chunks, sentence frames and collocations that a learner at this stage can use this week — not rare idioms."+
+      "\nDo NOT repeat any of these phrases: "+have.slice(0,160).join(" | ")+
+      '\n\nReply with ONLY a JSON array of 8 objects: {"phrase":"","meaning":"","example":"","variations":["","",""],"spoken":"contraction/reduction note or empty","register":"Casual|Neutral|Professional|Formal|Academic|Very informal","naturalness":"Natural|Very natural|Native-like","mistake":"the common learner mistake with this chunk","cefr":"B1|B2|C1|C2","category":"short label"}'
+    }],{modelTier:"default", cache:false});
+    busy(btn,false);
+    let added = 0;
+    (Array.isArray(r)?r:[]).forEach(o=>{
+      if(!o||!o.phrase) return;
+      const id = "a"+hash(o.phrase);
+      if(S.cards[id]) return;
+      S.cards[id] = {id, p:o.phrase, m:o.meaning||"", e:o.example||"", v:o.variations||[], sp:o.spoken||"",
+        r:o.register||"Neutral", n:o.naturalness||"Natural", mk:o.mistake||"", cef:o.cefr||"B2", cat:o.category||"Generated",
+        due:null, iv:0, ease:2.5, reps:0, lapses:0, lvl:1, seen:0, use:{prompt:0,write:0,speak:0,spon:0}, added:todayKey()};
+      added++;
+    });
+    save();
+    S.daily.cards.ids = null; buildQueue();
+    const msg = el("div","card tight"); msg.innerHTML = `<div class="note">${added} new phrase${added===1?"":"s"} added to the bank. They'll start appearing in the queue.</div>`;
+    host.insertBefore(msg, host.children[1]||null);
+  }catch(e){ busy(btn,false); aiError(host,e); }
+}
+
+/* ============================================================
+   TAB 2 — WRITING
+   ============================================================ */
+VIEWS.write = function(){
+  const host = $("#v-write");
+  const ph = phase(), w = S.daily.writing;
+  const targets = (w.targets||[]).map(cardById).filter(Boolean);
+  host.innerHTML = "";
+
+  const task = el("div","card");
+  task.innerHTML = `<div class="hd"><h2>Today's writing</h2><span class="sub">${ph.write} · ${esc(ph.name)}</span></div>
+    <div class="quote">${esc(w.topic)}</div>
+    <p class="note" style="margin-top:10px">Write it the way you'd actually say it. Don't reach for words you'd never use — reach for the phrases you're trying to make automatic.</p>`;
+  if(targets.length){
+    const t = el("div");
+    if(w.show){
+      t.innerHTML = `<hr class="sep"><label class="lab">Use at least three of these:</label>` +
+        targets.map(c=>`<div class="en" style="margin-bottom:4px">${esc(c.p)}</div>`).join("");
+    }else{
+      t.innerHTML = `<hr class="sep"><p class="note">There are hidden target phrases today. They're ones you already know. Write naturally — afterwards you'll see which you reached for on your own.</p>`;
+    }
+    task.appendChild(t);
+  }
+  host.appendChild(task);
+
+  const box = el("div","card");
+  box.innerHTML = `<label class="lab">Your answer — target ${ph.wmin}–${ph.wmax} words</label>`;
+  const ta = el("textarea"); ta.rows=9; ta.value = w.text||""; ta.placeholder="Start writing…";
+  box.appendChild(ta);
+  const row = el("div","row"); row.style.marginTop="10px";
+  const cnt = el("span","count");
+  const upd = ()=>{ const n=words(ta.value); cnt.textContent = n+" words"+(n<ph.wmin?" · "+(ph.wmin-n)+" to go":(n>ph.wmax?" · a bit over, that's fine":" · target met")); };
+  ta.addEventListener("input", ()=>{ upd(); w.text = ta.value; save(); });
+  upd();
+  const sub = el("button","btn accent","Get feedback"); sub.setAttribute("data-ai-btn",""); sub.disabled=!SAMPLE;
+  row.appendChild(sub); row.appendChild(cnt);
+  box.appendChild(row);
+  const out = el("div");
+  box.appendChild(out);
+  host.appendChild(box);
+
+  if(w.fb) renderWriteFB(out, w.fb, targets, w.text);
+
+  sub.onclick = async ()=>{
+    const text = ta.value.trim();
+    out.innerHTML = "";
+    if(words(text) < Math.max(20, ph.wmin*0.5)){
+      out.innerHTML = `<div class="err">Too short to coach properly. Aim for at least ${ph.wmin} words — the difficulty is the point.</div>`;
+      return;
+    }
+    busy(sub,true,"Reading it properly…");
+    try{
+      const r = await askJSON([{role:"user",content:
+        COACH+"\n\n"+learnerBrief()+
+        "\n\nTASK GIVEN: "+w.topic+"\nTARGET LENGTH: "+ph.wmin+"-"+ph.wmax+" words."+
+        (targets.length?"\nTARGET PHRASES"+(w.show?" (shown to them)":" (hidden from them)")+": "+targets.map(c=>c.p).join(" | "):"")+
+        "\n\nTHEIR WRITING:\n"+text.slice(0,4000)+
+        "\n\nAnalyse grammar, naturalness, vocabulary (range/precision/repetition), sentence structure and variety, linking, coherence, cohesion, and overall fluency. "+
+        "Correct only the most important things — at most 4 sentence-level corrections, chosen because they block meaning or mark them as a learner. Do not rewrite everything.\n"+
+        'Reply with ONLY this JSON:\n{"band":"A2|B1|B2|C1|C2","fluencyFeel":"translated|understandable but unnatural|conversational|natural|advanced|highly proficient","praise":"one or two specific things they did well, naming the structure","corrections":[{"mine":"their exact sentence","better":"more natural version","why":"the rule or collocation, one line"}],"scores":{"grammar":0,"vocabulary":0,"structure":0,"linking":0,"coherence":0,"naturalness":0},"errorTags":["articles"],"steal":["phrase worth memorising"],"priority":"the single highest-value thing to fix next time","next":"a 1-sentence rewrite task using the new language"}\nScores are 0-10 integers.'
+      }],{modelTier:"default", cache:false});
+      busy(sub,false);
+      w.fb = r; w.text = text; w.done = true;
+      (r.errorTags||[]).forEach(logError);
+      const used = targets.filter(c=> usesPhrase(text, c.p));
+      used.forEach(c=> markUse(c,"write"));
+      S.writing.push({d:todayKey(), topic:w.topic, text:text.slice(0,1200), band:r.band, scores:r.scores||{}, used:used.map(c=>c.p)});
+      if(r.band && ["A2","B1","B2","C1","C2"].includes(r.band)) reconsiderLevel();
+      touchDay(); save(); renderMeta();
+      renderWriteFB(out, r, targets, text);
+    }catch(e){ busy(sub,false); aiError(out,e); }
+  };
+};
+function renderWriteFB(out, r, targets, text){
+  out.innerHTML = "";
+  const box = el("div");
+  box.innerHTML = `<hr class="sep">
+    <div class="row" style="margin-bottom:10px">
+      <span class="pill y">Reads at ${esc(r.band||"?")}</span>
+      <span class="pill">${esc(r.fluencyFeel||"")}</span>
+    </div>
+    ${r.praise?`<div class="fb ok"><h4>What worked</h4><p>${esc(r.praise)}</p></div>`:""}`;
+  (r.corrections||[]).slice(0,4).forEach(c=>{
+    box.insertAdjacentHTML("beforeend", `<div class="fb fix">
+      <h4>Your sentence</h4><div class="en strike">${esc(c.mine)}</div>
+      <h4>More natural</h4><div class="en">${esc(c.better)}</div>
+      <h4>Why</h4><p class="note">${esc(c.why)}</p></div>`);
+  });
+  const sc = r.scores||{};
+  const keys = [["grammar","Grammatical accuracy"],["vocabulary","Lexical range and precision"],["structure","Sentence variety"],["linking","Linking and cohesion"],["coherence","Coherence"],["naturalness","Naturalness"]];
+  const tbl = el("div"); tbl.style.margin="12px 0";
+  keys.forEach(([k,lbl])=>{
+    if(sc[k]==null) return;
+    const r2 = el("div","lvlrow");
+    r2.innerHTML = `<span class="nm">${esc(lbl)}</span><span class="bar"><i style="width:${Math.max(0,Math.min(10,sc[k]))*10}%"></i></span><span class="n">${esc(sc[k])}</span>`;
+    tbl.appendChild(r2);
+  });
+  box.appendChild(tbl);
+  if((r.steal||[]).length) box.insertAdjacentHTML("beforeend", `<div class="fb"><h4>Steal this</h4>${(r.steal||[]).map(s=>`<div class="en">${esc(s)}</div>`).join("")}</div>`);
+  if(r.priority) box.insertAdjacentHTML("beforeend", `<div class="fb fix"><h4>Fix this first, next time</h4><p>${esc(r.priority)}</p></div>`);
+  if(r.next) box.insertAdjacentHTML("beforeend", `<div class="fb ok"><h4>Your turn</h4><p>${esc(r.next)}</p></div>`);
+  if(targets.length && text){
+    const used = targets.filter(c=> usesPhrase(text, c.p));
+    box.insertAdjacentHTML("beforeend", `<hr class="sep"><label class="lab">Target phrases</label>` +
+      targets.map(c=> `<div class="row" style="margin-bottom:5px"><span class="pill ${used.includes(c)?"g":"r"}">${used.includes(c)?"used":"not used"}</span> <span class="en">${esc(c.p)}</span></div>`).join(""));
+  }
+  out.appendChild(box);
+}
+function reconsiderLevel(){
+  const recent = S.writing.slice(-5).map(w=>w.band).filter(Boolean);
+  if(recent.length<3) return;
+  const order = ["A1","A2","B1","B2","C1","C2"];
+  const counts = {};
+  recent.forEach(b=> counts[b]=(counts[b]||0)+1);
+  const top = Object.entries(counts).sort((a,b)=> b[1]-a[1] || order.indexOf(a[0])-order.indexOf(b[0]))[0];
+  if(top && top[1]>=3) S.level = top[0];
+}
+/* ============================================================
+   Part 3: speak + listen, conversation, progress, boot
+   ============================================================ */
+
+/* ---------- TAB 3 — SPEAK + LISTEN ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recog=null, recording=false, tick=null, elapsed=0, limit=60;
+const FILLERS = /\b(uh|um|er|ah|like|you know|i mean|so so|how to say)\b/gi;
+
+VIEWS.speak = function(){
+  const host = $("#v-speak");
+  const ph = phase(), sp = S.daily.speaking, ls = S.daily.listen;
+  host.innerHTML = "";
+
+  /* --- speaking --- */
+  const task = el("div","card");
+  task.innerHTML = `<div class="hd"><h2>Today's speaking</h2><span class="sub">${ph.speak} · no notes</span></div>
+    <div class="quote">${esc(sp.topic)}</div>
+    <p class="note" style="margin-top:10px">Speak straight through. If you get stuck, paraphrase out loud — stopping to translate is the habit we're breaking.</p>`;
+  host.appendChild(task);
+
+  const box = el("div","card");
+  limit = sp.secs;
+  const timerRow = el("div","row"); timerRow.style.justifyContent="space-between";
+  const t = el("div","timer", fmt(limit));
+  const sel = el("select"); sel.style.width="auto";
+  [30,60,120,180,300,600].forEach(s=>{ const o=el("option",null, s<60? s+"s" : (s/60)+" min"); o.value=s; if(s===sp.secs)o.selected=true; sel.appendChild(o); });
+  sel.onchange = ()=>{ limit = +sel.value; sp.secs = limit; elapsed=0; t.textContent = fmt(limit); save(); };
+  timerRow.appendChild(t); timerRow.appendChild(sel);
+  box.appendChild(timerRow);
+
+  const ctl = el("div","row"); ctl.style.marginTop="12px";
+  const start = el("button","btn accent","Start speaking");
+  const stop = el("button","btn ghost","Stop"); stop.disabled = true;
+  ctl.appendChild(start); ctl.appendChild(stop);
+  const st = el("span","count"); ctl.appendChild(st);
+  box.appendChild(ctl);
+
+  const ta = el("textarea"); ta.rows=6; ta.style.marginTop="12px"; ta.value = sp.text||"";
+  ta.placeholder = SR? "Your speech appears here. You can fix obvious mis-hearings before sending." : "Speech-to-text isn't available in this browser — speak out loud with the timer, then type or paste roughly what you said.";
+  ta.addEventListener("input",()=>{ sp.text = ta.value; save(); });
+  box.appendChild(ta);
+
+  const out = el("div");
+  const send = el("button","btn","Get speaking feedback"); send.style.marginTop="10px"; send.setAttribute("data-ai-btn",""); send.disabled=!SAMPLE;
+  box.appendChild(send); box.appendChild(out);
+  host.appendChild(box);
+
+  function fmt(s){ const m=Math.floor(s/60), r=s%60; return m+":"+String(r).padStart(2,"0"); }
+  function stopAll(){
+    recording=false; clearInterval(tick); tick=null;
+    try{ recog && recog.stop(); }catch(e){}
+    start.disabled=false; stop.disabled=true; st.innerHTML="";
+  }
+  start.onclick = ()=>{
+    elapsed=0; recording=true; start.disabled=true; stop.disabled=false;
+    st.innerHTML = '<span class="rec"></span>speaking';
+    tick = setInterval(()=>{
+      elapsed++; t.textContent = fmt(Math.max(0,limit-elapsed));
+      if(elapsed>=limit){ stopAll(); t.textContent="0:00"; st.textContent="time"; }
+    },1000);
+    if(SR){
+      try{
+        recog = new SR(); recog.lang="en-US"; recog.continuous=true; recog.interimResults=false;
+        recog.onresult = e=>{
+          let add="";
+          for(let i=e.resultIndex;i<e.results.length;i++) if(e.results[i].isFinal) add += e.results[i][0].transcript+" ";
+          if(add){ ta.value = (ta.value+" "+add).replace(/\s+/g," ").trim(); sp.text=ta.value; save(); }
+        };
+        recog.onerror = ev=>{
+          st.textContent = ev.error==="not-allowed" ? "mic blocked — type what you said" : "mic error — type what you said";
+        };
+        recog.onend = ()=>{ if(recording){ try{recog.start();}catch(e){} } };
+        recog.start();
+      }catch(e){ st.textContent="mic unavailable — type what you said"; }
+    }
+  };
+  stop.onclick = stopAll;
+
+  send.onclick = async ()=>{
+    const text = ta.value.trim(); out.innerHTML="";
+    if(words(text)<25){ out.innerHTML = `<div class="err">Too little to analyse. Speak for the full ${fmt(limit)} and get at least 25 words down.</div>`; return; }
+    const secs = Math.max(10, elapsed||limit);
+    const wpm = Math.round(words(text)/(secs/60));
+    const fill = (text.match(FILLERS)||[]).length;
+    const hidden = (sp.hidden||[]).map(cardById).filter(Boolean);
+    busy(send,true,"Listening back…");
+    try{
+      const r = await askJSON([{role:"user",content:
+        COACH+"\n\n"+learnerBrief()+
+        "\n\nThis is a TRANSCRIPT of the learner speaking for "+secs+" seconds without notes (speech-to-text, so ignore punctuation and obvious mis-hearings). "+
+        "Measured: "+words(text)+" words, about "+wpm+" words per minute, "+fill+" filler words.\n"+
+        "TASK THEY WERE GIVEN: "+sp.topic+
+        "\n\nTRANSCRIPT:\n"+text.slice(0,4000)+
+        "\n\nJudge fluency (pauses, restarts, repetition, ability to keep going), grammar, vocabulary range and precision, sentence formation, linking, coherence, naturalness and spontaneity. "+
+        "Give at most three improvements — the ones that would change their speaking most, in order.\n"+
+        'Reply with ONLY this JSON:\n{"band":"A2|B1|B2|C1|C2","fluency":"one line on how it flowed","wellDone":["specific thing 1","specific thing 2"],"holdingBack":"the single biggest thing limiting them","top3":["improvement 1","improvement 2","improvement 3"],"rewrite":{"mine":"one weak stretch they said","better":"how a C1 speaker would deliver the same idea"},"errorTags":["verb tense"],"next":"a 60-second follow-up speaking prompt that forces the fix"}'
+      }],{modelTier:"default", cache:false});
+      busy(send,false);
+      (r.errorTags||[]).forEach(logError);
+      const used = hidden.filter(c=> usesPhrase(text,c.p));
+      used.forEach(c=> markUse(c, "spon"));
+      const spoken = Object.values(S.cards).filter(c=> c.lvl>=2 && !hidden.includes(c) && usesPhrase(text,c.p));
+      spoken.slice(0,6).forEach(c=> markUse(c,"speak"));
+      sp.done = true; sp.fb = r;
+      S.speaking.push({d:todayKey(), topic:sp.topic, secs, wpm, fill, band:r.band, text:text.slice(0,1200)});
+      touchDay(); save(); renderMeta();
+      out.innerHTML = `<hr class="sep">
+        <div class="row" style="margin-bottom:8px"><span class="pill y">Sounds like ${esc(r.band||"?")}</span>
+        <span class="pill">${wpm} wpm</span><span class="pill ${fill>8?"r":"g"}">${fill} fillers</span>
+        <span class="pill">${secs}s</span></div>
+        <div class="fb"><h4>Flow</h4><p>${esc(r.fluency||"")}</p></div>
+        <div class="fb ok"><h4>What you did well</h4><ul class="list">${(r.wellDone||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>
+        <div class="fb fix"><h4>What's holding you back</h4><p>${esc(r.holdingBack||"")}</p></div>
+        <div class="fb fix"><h4>Top three improvements</h4><ol class="list">${(r.top3||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ol></div>
+        ${r.rewrite?`<div class="fb"><h4>You said</h4><div class="en strike">${esc(r.rewrite.mine||"")}</div><h4>C1 version</h4><div class="en">${esc(r.rewrite.better||"")}</div></div>`:""}
+        ${hidden.length?`<hr class="sep"><label class="lab">Hidden phrase test — these were never shown to you</label>`+hidden.map(c=>`<div class="row" style="margin-bottom:5px"><span class="pill ${used.includes(c)?"g":"r"}">${used.includes(c)?"used spontaneously":"didn't reach for it"}</span> <span class="en">${esc(c.p)}</span></div>`).join(""):""}
+        ${r.next?`<div class="fb ok"><h4>Your turn</h4><p>${esc(r.next)}</p></div>`:""}`;
+    }catch(e){ busy(send,false); aiError(out,e); }
+  };
+
+  /* --- listening --- */
+  const L = el("div","card");
+  const [w0,w1,w2] = ls.watch, [p0,p1,p2] = ls.pod, [t0,t1,t2] = ls.tt;
+  L.innerHTML = `<div class="hd"><h2>Today's listening</h2><span class="sub">different every day</span></div>
+    <label class="lab">Watch</label>
+    <div class="quote">${esc(w0)}</div>
+    <p class="note">Section: ${esc(w1)} · Listen for: ${esc(w2)}</p>
+    <hr class="sep">
+    <label class="lab">Listen</label>
+    <div class="quote">${esc(p0)}</div>
+    <p class="note">${esc(p1)} · suits ${esc(p2)}</p>
+    <hr class="sep">
+    <label class="lab">Tongue twister — ${esc(t1)}, trains ${esc(t2)}</label>
+    <div class="quote en">${esc(t0)}</div>
+    <p class="note">Say it three times: slowly, at speed, then smiling. Record yourself once with the mic above if you want to hear the difference.</p>`;
+  const lrow = el("div","row"); lrow.style.marginTop="12px";
+  const enrich = el("button","btn accent sm","Quiz me on today's watch & listen"); enrich.setAttribute("data-ai-btn",""); enrich.disabled=!SAMPLE;
+  const dn = el("button","btn ghost sm", ls.done? "Listening done ✓" : "Mark listening done");
+  dn.onclick = ()=>{ ls.done=true; dn.textContent="Listening done ✓"; touchDay(); renderMeta(); };
+  lrow.appendChild(enrich); lrow.appendChild(dn);
+  L.appendChild(lrow);
+  L.appendChild(el("p","note","Tap the button above for two short multiple-choice questions on the clip and two on the podcast, so you can check you actually understood them."));
+  const lout = el("div"); L.appendChild(lout);
+  if(ls.extra) renderListen(lout, ls.extra);
+  enrich.onclick = async ()=>{
+    busy(enrich,true,"Preparing…");
+    try{
+      const r = await askJSON([{role:"user",content:
+        COACH+"\n\n"+learnerBrief()+
+        "\n\nBuild today's listening exercise around two things: WATCH — "+w0+" ("+w1+"); LISTEN — the podcast "+p0+" ("+p1+"). Keep it enjoyable, not like homework.\n"+
+        "Also write two SHORT comprehension quizzes so the learner can check they actually understood, not just watched. "+
+        "quizWatch: 2 multiple-choice questions about what actually happens or is said in that well-known section (plot, a character's line, why something happens) — real comprehension, not a vocabulary lookup. "+
+        "quizListen: 2 multiple-choice questions about that podcast's usual topic, format or tone (what kind of show it is, what a listener would expect to hear) since the exact episode varies. "+
+        "Each question needs exactly 4 options, one correct.\n"+
+        'Reply with ONLY this JSON: {"listenFor":["3 concrete things to notice in the audio: a reduction, a filler, an intonation pattern"],"phrases":[{"phrase":"","use":"when to say it"}],"shadow":"one line from that section to shadow, written the way it sounds when spoken fast","question":"one open comprehension question that needs real understanding, not just a word","answerHint":"what a good answer contains","quizWatch":[{"q":"","options":["","","",""],"correct":0,"why":"one line"}],"quizListen":[{"q":"","options":["","","",""],"correct":0,"why":"one line"}]}'
+      }],{modelTier:"default", cache:false});
+      busy(enrich,false); ls.extra = r; save(); renderListen(lout, r);
+    }catch(e){ busy(enrich,false); aiError(lout,e); }
+  };
+  host.appendChild(L);
+};
+function renderListen(host, r){
+  host.innerHTML = `<hr class="sep">
+    <div class="fb"><h4>Listen for</h4><ul class="list">${(r.listenFor||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>
+    <div class="fb"><h4>Phrases to catch</h4>${(r.phrases||[]).map(p=>`<div class="en">${esc(p.phrase)}</div><p class="note" style="margin-bottom:8px">${esc(p.use||"")}</p>`).join("")}</div>
+    <div class="fb ok"><h4>Shadow this line</h4><div class="en">${esc(r.shadow||"")}</div></div>
+    <div class="fb fix"><h4>Comprehension</h4><p>${esc(r.question||"")}</p><p class="note">${esc(r.answerHint||"")}</p></div>`;
+  if((r.quizWatch||[]).length){
+    const h = el("h4"); h.className="lab"; h.style.marginTop="16px"; h.textContent="Quick check — the watch clip";
+    host.appendChild(h);
+    host.appendChild(quizBlock(r.quizWatch));
+  }
+  if((r.quizListen||[]).length){
+    const h = el("h4"); h.className="lab"; h.style.marginTop="16px"; h.textContent="Quick check — the podcast";
+    host.appendChild(h);
+    host.appendChild(quizBlock(r.quizListen));
+  }
+}
+/* small self-contained multiple-choice quiz: click an option, see feedback, no scroll-jump */
+function quizBlock(items){
+  const wrap = el("div","card tight"); wrap.style.background="var(--surface2)";
+  items.forEach((it,qi)=>{
+    const q = el("div"); q.style.marginBottom = qi<items.length-1? "16px":"0";
+    q.innerHTML = `<p style="font-weight:600;margin-bottom:8px">${qi+1}. ${esc(it.q||"")}</p>`;
+    (it.options||[]).forEach((opt,oi)=>{
+      const b = el("button","opt");
+      b.innerHTML = `<span class="k">${String.fromCharCode(65+oi)}</span>${esc(opt)}`;
+      b.onclick = ()=>{
+        if(b.dataset.locked) return;
+        [...q.querySelectorAll(".opt")].forEach(o=>o.dataset.locked="1");
+        [...q.querySelectorAll(".opt")].forEach((o,idx)=>{
+          o.disabled = true;
+          if(idx===it.correct) o.classList.add("pick-ok");
+          else if(idx===oi) o.classList.add("pick-no");
+        });
+        const fb = el("div", oi===it.correct? "fb ok":"fb fix");
+        fb.innerHTML = `<p class="note">${oi===it.correct?"Correct. ":"Not quite. "}${esc(it.why||"")}</p>`;
+        q.appendChild(fb);
+      };
+      q.appendChild(b);
+    });
+    wrap.appendChild(q);
+  });
+  return wrap;
+}
+
+/* ============================================================
+   TAB 4 — AI CONVERSATION
+   ============================================================ */
+VIEWS.talk = function(){
+  const host = $("#v-talk");
+  const C = S.convo;
+  host.innerHTML = "";
+  const ph = phase();
+  const head = el("div","card tight");
+  head.innerHTML = `<div class="hd"><h2>Conversation</h2><span class="sub">Step ${C.stage} of 3 · plan says ${esc(ph.convo)}</span><div class="spacer"></div></div>
+    <div class="note">${C.stage===1?"Step 1 — recognise natural English. Choose the response a native speaker would actually give, then see why the others fall short."
+      :C.stage===2?"Step 2 — you produce the language yourself, with a target structure in mind. Feedback comes after each turn."
+      :"Step 3 — real conversation. No prompts, no choices. Feedback arrives in batches so the talking isn't interrupted."}</div>`;
+  const row = el("div","row"); row.style.marginTop="10px";
+  const sel = el("select"); sel.style.width="auto";
+  [[1,"Step 1 — multiple choice"],[2,"Step 2 — guided production"],[3,"Step 3 — natural conversation"]].forEach(([v,l])=>{
+    const o = el("option",null,l); o.value=v; if(v===C.stage)o.selected=true; sel.appendChild(o);
+  });
+  sel.onchange = ()=>{ C.stage=+sel.value; C.turns=[]; C.mc=null; C.userTurns=0; save(); VIEWS.talk(); };
+  row.appendChild(sel);
+  const reset = el("button","btn ghost sm","Start over");
+  reset.onclick = ()=>{ C.turns=[]; C.mc=null; C.userTurns=0; save(); VIEWS.talk(); };
+  row.appendChild(reset);
+  head.appendChild(row);
+  host.appendChild(head);
+
+  if(C.stage===1) renderMC(host); else renderChat(host);
+};
+
+/* ---- stage 1: multiple choice ---- */
+async function renderMC(host){
+  const C = S.convo;
+  const box = el("div","card");
+  host.appendChild(box);
+  if(!C.mc){
+    box.innerHTML = `<p class="lede">A short, realistic exchange. Pick the response that sounds like a person, not a textbook.</p>`;
+    const b = el("button","btn accent","Start an exchange"); b.setAttribute("data-ai-btn",""); b.disabled=!SAMPLE;
+    b.onclick = async ()=>{
+      busy(b,true,"Setting the scene…");
+      try{
+        const pool = activePool(10);
+        const recycle = pool.map(c=>c.p).slice(0,6);
+        const r = await askJSON([{role:"user",content:
+          COACH+"\n\n"+learnerBrief()+
+          "\n\nCreate ONE multiple-choice conversation item for step 1.\n"+
+          "Pick a realistic everyday or workplace situation. Write what the other person says. Give four candidate replies: one clearly the most natural, one understandable but stiff or over-formal, one with a real grammar problem a B1 learner would make, one that doesn't actually answer. Order them randomly.\n"+
+          (recycle.length? "If it fits naturally, build the item around one of these phrases the learner knows but doesn't use yet: "+recycle.join(" | ")+"\n":"")+
+          'Reply with ONLY this JSON: {"situation":"one line of context","aiLine":"what the other person says","options":[{"id":"A","text":"","verdict":"natural|stiff|grammar|off-topic","why":"why it works or fails, one or two lines, with the rule"}],"correctId":"A","target":{"phrase":"the useful chunk from the natural option","meaning":"","variations":["","",""],"register":"Casual|Neutral|Professional|Formal|Academic","naturalness":"Natural|Very natural|Native-like","when":"when it is appropriate"}}'
+        }],{modelTier:"default", cache:false});
+        C.mc = {item:r, picked:null, understood:null, produced:null};
+        save(); VIEWS.talk();
+      }catch(e){ busy(b,false); aiError(box,e); }
+    };
+    box.appendChild(b);
+    return;
+  }
+  const {item, picked} = C.mc;
+  box.innerHTML = `<p class="note">${esc(item.situation||"")}</p>
+    <div class="chat"><div class="msg ai">${esc(item.aiLine||"")}</div></div>`;
+  const opts = el("div");
+  (item.options||[]).forEach(o=>{
+    const b = el("button","opt");
+    b.innerHTML = `<span class="k">${esc(o.id)}</span>${esc(o.text)}`;
+    if(picked){
+      b.disabled = true;
+      if(o.id===item.correctId) b.classList.add("pick-ok");
+      else if(o.id===picked) b.classList.add("pick-no");
+    } else {
+      b.onclick = ()=>{ C.mc.picked = o.id; if(o.id!==item.correctId && o.verdict) logError(o.verdict==="grammar"?"verb tense":"unnatural phrasing"); save(); VIEWS.talk(); };
+    }
+    opts.appendChild(b);
+  });
+  box.appendChild(opts);
+  if(!picked) return;
+
+  const ex = el("div");
+  ex.innerHTML = `<hr class="sep"><label class="lab">Every option, and why</label>` +
+    (item.options||[]).map(o=>`<div class="fb ${o.id===item.correctId?"ok":"fix"}">
+      <h4>${esc(o.id)} — ${esc({natural:"Natural",stiff:"Understandable but stiff",grammar:"Grammar problem","off-topic":"Doesn't answer the question"}[o.verdict]||o.verdict||"")}</h4>
+      <div class="en">${esc(o.text)}</div><p class="note">${esc(o.why||"")}</p></div>`).join("");
+  const t = item.target||{};
+  if(t.phrase){
+    ex.insertAdjacentHTML("beforeend", `<hr class="sep"><label class="lab">The chunk worth keeping</label>
+      <div class="quote en">${esc(t.phrase)}</div>
+      <p class="note" style="margin-top:6px">${esc(t.meaning||"")}</p>
+      ${(t.variations||[]).length?`<div class="fb"><h4>Variations</h4>${(t.variations||[]).map(v=>`<div class="en">${esc(v)}</div>`).join("")}</div>`:""}
+      <div class="row"><span class="pill">${esc(t.register||"Neutral")}</span><span class="pill g">${esc(t.naturalness||"Natural")}</span></div>
+      <p class="note" style="margin-top:8px">${esc(t.when||"")}</p>`);
+  }
+  box.appendChild(ex);
+
+  if(C.mc.understood===null){
+    const q = el("div"); q.innerHTML = `<hr class="sep"><label class="lab">Do you understand this phrase?</label>`;
+    const r2 = el("div","row");
+    const yes = el("button","btn accent sm","Yes — I've got it");
+    const no = el("button","btn ghost sm","Not yet");
+    yes.onclick = ()=>{ C.mc.understood=true; saveTarget(t); save(); VIEWS.talk(); };
+    no.onclick = async ()=>{
+      busy(no,true,"Explaining it differently…");
+      try{
+        const r = await ask([{role:"user",content:
+          COACH+"\n\nThe learner says they still don't understand this chunk: \""+t.phrase+"\" ("+(t.meaning||"")+").\n"+
+          "Explain it a completely different way — simpler words, a fresh everyday example they'd actually live through in the Philippines, one contrasting example showing when NOT to use it, and one example in another situation. "+
+          "Do not repeat the previous explanation. No markdown, under 130 words."
+        }],{modelTier:"quick", cache:false});
+        busy(no,false);
+        q.insertAdjacentHTML("beforeend", `<div class="fb"><h4>Another way to see it</h4><p>${esc(r.text)}</p></div>`);
+      }catch(e){ busy(no,false); aiError(q,e); }
+    };
+    r2.appendChild(yes); r2.appendChild(no); q.appendChild(r2);
+    box.appendChild(q);
+    return;
+  }
+  /* controlled production */
+  const prod = el("div");
+  prod.innerHTML = `<hr class="sep"><label class="lab">Now you say it. Answer this in your own words, using the pattern.</label>
+    <div class="quote">${esc(item.aiLine||"")}</div>`;
+  const ta = el("textarea"); ta.rows=3; ta.style.marginTop="8px"; ta.placeholder="Your own answer…";
+  prod.appendChild(ta);
+  const out = el("div");
+  const b2 = el("button","btn sm","Send my answer"); b2.style.marginTop="8px"; b2.setAttribute("data-ai-btn",""); b2.disabled=!SAMPLE;
+  b2.onclick = async ()=>{
+    const txt = ta.value.trim(); if(!txt) return;
+    out.innerHTML=""; busy(b2,true,"Reading…");
+    try{
+      const r = await askJSON([{role:"user",content:
+        COACH+"\n\n"+learnerBrief()+
+        "\n\nTarget pattern: "+t.phrase+"\nPrompt they answered: "+item.aiLine+"\nTheir answer: "+txt+
+        '\n\nReply with ONLY this JSON: {"wellDone":"one specific thing, naming the structure","correction":{"mine":"","better":"","why":""},"naturalness":"Unnatural|Understandable|Natural|Very natural|Native-like","variation":"one useful variation of the target pattern they could use next","usedTarget":true,"errorTags":["articles"],"reply":"your natural conversational reply that keeps the conversation going and asks a follow-up question"}'
+      }],{modelTier:"default", cache:false});
+      busy(b2,false);
+      (r.errorTags||[]).forEach(logError);
+      const card = Object.values(S.cards).find(c=> c.p===t.phrase);
+      if(card && usesPhrase(txt, t.phrase)) markUse(card,"prompt");
+      out.innerHTML = `<div class="fb ok"><h4>What you did well</h4><p>${esc(r.wellDone||"")}</p></div>
+        ${r.correction&&r.correction.better?`<div class="fb fix"><h4>Your sentence</h4><div class="en strike">${esc(r.correction.mine||txt)}</div><h4>More natural</h4><div class="en">${esc(r.correction.better)}</div><p class="note">${esc(r.correction.why||"")}</p></div>`:""}
+        <div class="row"><span class="pill g">${esc(r.naturalness||"")}</span></div>
+        ${r.variation?`<div class="fb"><h4>Try this variation next</h4><div class="en">${esc(r.variation)}</div></div>`:""}
+        <div class="chat" style="margin-top:12px"><div class="msg ai">${esc(r.reply||"")}</div></div>`;
+      S.daily.talk.done = true; touchDay(); renderMeta();
+      const nx = el("div","row");
+      const a = el("button","btn accent sm","Keep this conversation going");
+      a.onclick = ()=>{ S.convo.stage=2; S.convo.turns=[{r:"ai",t:r.reply||item.aiLine}]; S.convo.userTurns=0; S.convo.mc=null; save(); VIEWS.talk(); };
+      const b3 = el("button","btn ghost sm","New exchange");
+      b3.onclick = ()=>{ S.convo.mc=null; save(); VIEWS.talk(); };
+      nx.appendChild(a); nx.appendChild(b3); out.appendChild(nx);
+      save();
+    }catch(e){ busy(b2,false); aiError(out,e); }
+  };
+  prod.appendChild(b2); prod.appendChild(out);
+  box.appendChild(prod);
+}
+function saveTarget(t){
+  if(!t||!t.phrase) return;
+  const id = "t"+hash(t.phrase);
+  if(S.cards[id]) { bumpLevel(S.cards[id],2); return; }
+  S.cards[id] = {id, p:t.phrase, m:t.meaning||"", e:"", v:t.variations||[], sp:"", r:t.register||"Neutral", n:t.naturalness||"Natural",
+    mk:"", cef:"B2", cat:"From conversation", due:null, iv:0, ease:2.5, reps:0, lapses:0, lvl:2, seen:1,
+    use:{prompt:0,write:0,speak:0,spon:0}, added:todayKey()};
+  save();
+}
+
+/* ---- stages 2 & 3: live conversation ---- */
+function chatInstructions(){
+  const C = S.convo;
+  const recycle = activePool(8).map(c=>c.p);
+  return COACH+"\n\n"+learnerBrief()+"\n\n"+
+  "You are now the learner's conversation partner in a chat. Rules for this mode:\n"+
+  "- Reply as a real person would: 2-4 sentences, warm, specific, and end with a follow-up question. Plain text, no markdown, no lists.\n"+
+  "- Never open with a greeting if the conversation is already running.\n"+
+  (C.stage===2
+    ? "- STEP 2 (guided): weave these phrases into YOUR OWN turns so the learner hears them in context, and create situations where they would naturally use one: "+recycle.slice(0,5).join(" | ")+". Do not tell them which phrase to use and do not force one into every turn.\n"
+    : "- STEP 3 (natural): no scaffolding at all. Push them: ask for reasons, examples, comparisons, opinions, hypotheticals. Disagree sometimes. Change topic when it stalls.\n")+
+  "- Do NOT correct their English inside this reply, however tempting. Corrections are delivered separately.\n"+
+  "- If they clearly don't understand a word you used, rephrase it naturally inside the conversation.";
+}
+function renderChat(host){
+  const C = S.convo;
+  const box = el("div","card");
+  const log = el("div","chat");
+  C.turns.forEach(t=>{
+    const m = el("div","msg "+(t.r==="me"?"me":t.r==="sys"?"sys":"ai"));
+    if(t.r==="sys") m.innerHTML = t.t; else m.textContent = t.t;
+    log.appendChild(m);
+  });
+  box.appendChild(log);
+  const ta = el("textarea"); ta.rows=2; ta.placeholder = C.turns.length? "Your reply…" : "Say anything to start — or press Open with a topic.";
+  box.appendChild(ta);
+  const row = el("div","row"); row.style.marginTop="8px";
+  const send = el("button","btn accent","Send"); send.setAttribute("data-ai-btn",""); send.disabled=!SAMPLE;
+  const fbb = el("button","btn ghost sm","How am I doing?"); fbb.setAttribute("data-ai-btn",""); fbb.disabled=!SAMPLE;
+  row.appendChild(send); row.appendChild(fbb);
+  if(!C.turns.length){
+    const op = el("button","btn ghost sm","Open with a topic");
+    op.onclick = ()=>{ ta.value = rnd(BANK.speak); };
+    row.appendChild(op);
+  }
+  box.appendChild(row);
+  const out = el("div"); box.appendChild(out);
+  host.appendChild(box);
+  ta.addEventListener("keydown", e=>{ if(e.key==="Enter" && (e.metaKey||e.ctrlKey)) send.click(); });
+
+  async function doSend(){
+    const txt = ta.value.trim(); if(!txt) return;
+    ta.value=""; out.innerHTML="";
+    C.turns.push({r:"me", t:txt}); C.userTurns++;
+    const mine = el("div","msg me", txt); log.appendChild(mine);
+    /* silent active-phrase check */
+    const hits = Object.values(S.cards).filter(c=> c.lvl>=2 && c.lvl<7 && usesPhrase(txt,c.p));
+    hits.slice(0,4).forEach(c=> markUse(c,"spon"));
+    const bubble = el("div","msg ai","Thinking…"); log.appendChild(bubble);
+    bubble.scrollIntoView({block:"nearest"});
+    busy(send,true,"…");
+    const turns = [{role:"user", content:chatInstructions()}].concat(
+      C.turns.slice(-14).filter(t=>t.r!=="sys").map(t=>({role: t.r==="me"?"user":"assistant", content:t.t}))
+    );
+    if(turns[turns.length-1].role!=="user") turns.push({role:"user", content:txt});
+    try{
+      const r = await ask(turns, {cache:false, modelTier:"quick", onText:({text})=>{ bubble.textContent = text; }});
+      C.turns.push({r:"ai", t:r.text});
+      save();
+      busy(send,false);
+      if(hits.length){
+        const s = el("div","msg sys");
+        s.innerHTML = "Noticed: you used <b>"+hits.slice(0,3).map(c=>esc(c.p)).join("</b>, <b>")+"</b> without being prompted. That counts as spontaneous use.";
+        log.appendChild(s); C.turns.push({r:"sys", t:s.innerHTML});
+      }
+      if(C.userTurns % 4 === 0) feedbackNow(out);
+      S.daily.talk.done = true; touchDay(); renderMeta();
+    }catch(e){ busy(send,false); bubble.remove(); C.turns.pop(); aiError(out,e); }
+  }
+  send.onclick = doSend;
+  fbb.onclick = ()=> feedbackNow(out);
+
+  async function feedbackNow(target){
+    const mine = C.turns.filter(t=>t.r==="me").slice(-4).map(t=>t.t);
+    if(!mine.length) return;
+    target.innerHTML = `<div class="skel">Reviewing your last few turns…</div>`;
+    try{
+      const r = await askJSON([{role:"user",content:
+        COACH+"\n\n"+learnerBrief()+
+        "\n\nHere are the learner's last turns in a live conversation:\n"+mine.map((m,i)=>(i+1)+". "+m).join("\n")+
+        "\n\nGive a SHORT feedback summary. Keep it to the highest-value points only.\n"+
+        'Reply with ONLY this JSON: {"naturalness":"Unnatural|Understandable|Natural|Very natural|Native-like","grammar":"the single most important error, or empty string","better":"one of their sentences rewritten the way a C1 speaker would say it","linking":"one line on how they connected ideas","vocabulary":"one line on precision and range","fluency":"one line on hesitation, repetition or restarts visible in the text","improvement":"the one thing to work on right now","errorTags":["articles"]}'
+      }],{modelTier:"quick", cache:false});
+      (r.errorTags||[]).forEach(logError); save();
+      target.innerHTML = `<hr class="sep"><div class="row"><span class="pill g">${esc(r.naturalness||"")}</span></div>
+        ${r.grammar?`<div class="fb fix"><h4>Grammar</h4><p>${esc(r.grammar)}</p></div>`:""}
+        ${r.better?`<div class="fb"><h4>Said better</h4><div class="en">${esc(r.better)}</div></div>`:""}
+        <div class="fb"><h4>Linking</h4><p class="note">${esc(r.linking||"")}</p><h4>Vocabulary</h4><p class="note">${esc(r.vocabulary||"")}</p><h4>Fluency</h4><p class="note">${esc(r.fluency||"")}</p></div>
+        <div class="fb ok"><h4>Work on this right now</h4><p>${esc(r.improvement||"")}</p></div>`;
+    }catch(e){ target.innerHTML=""; aiError(target,e); }
+  }
+}
+
+/* ============================================================
+   TAB 5 — PROGRESS
+   ============================================================ */
+VIEWS.prog = function(){
+  const host = $("#v-prog");
+  const ph = phase(), t = tasksDone();
+  const cards = Object.values(S.cards);
+  const lvls = [1,2,3,4,5,6,7].map(l=> cards.filter(c=>c.lvl===l).length);
+  const maxL = Math.max(1,...lvls);
+  const activeN = cards.filter(c=>c.lvl>=5).length;
+  const passiveN = cards.filter(c=>c.lvl>=2 && c.lvl<5).length;
+  host.innerHTML = "";
+
+  const sb = el("div","card");
+  sb.innerHTML = `<div class="hd"><h2>Today's scoreboard</h2><span class="sub">${todayKey()}</span></div>
+    <div class="scoreline"><span>Phrases reviewed</span><b>${S.counts.reviewed}</b></div>
+    <div class="scoreline"><span>Recalled without help</span><b>${S.counts.recalled}</b></div>
+    <div class="scoreline"><span>Actually used in your own language</span><b>${S.counts.used}</b></div>
+    <div class="scoreline"><span>Writing</span><b>${t.write?"done":"not yet"}</b></div>
+    <div class="scoreline"><span>Speaking</span><b>${t.speak?"done":"not yet"}</b></div>
+    <div class="scoreline"><span>Listening</span><b>${t.listen?"done":"not yet"}</b></div>
+    <div class="scoreline"><span>Conversation</span><b>${t.talk?"done":"not yet"}</b></div>
+    <div class="scoreline"><span>Streak</span><b>${S.streak} day${S.streak===1?"":"s"}</b></div>`;
+  const dots = el("div","streakdots");
+  const last = S.sessions.slice(-21).map(s=>s.d);
+  for(let i=20;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); const k=d.toLocaleDateString("en-CA"); dots.appendChild(el("i", last.includes(k)?"on":"")); }
+  sb.appendChild(dots);
+  host.appendChild(sb);
+
+  const dk = el("div","card");
+  dk.innerHTML = `<div class="hd"><h2>Where your phrases actually are</h2><span class="sub">${cards.length} in the bank</span></div>
+    <p class="note" style="margin-bottom:12px">Recognising a phrase is not knowing it. Only the bottom three rows count as language you own.</p>`;
+  [7,6,5,4,3,2,1].forEach(l=>{
+    const r = el("div","lvlrow");
+    r.innerHTML = `<span class="nm">${esc(LVL_NAMES[l])}</span><span class="bar"><i style="width:${Math.round(lvls[l-1]/maxL*100)}%"></i></span><span class="n">${lvls[l-1]}</span>`;
+    dk.appendChild(r);
+  });
+  dk.insertAdjacentHTML("beforeend", `<hr class="sep"><div class="row"><span class="pill g">${activeN} active</span><span class="pill y">${passiveN} recognised but not used</span><span class="pill">${cards.filter(c=>!c.due).length} not started</span></div>`);
+  const pas = cards.filter(c=>c.lvl>=2&&c.lvl<5).slice(0,8);
+  if(pas.length) dk.insertAdjacentHTML("beforeend", `<hr class="sep"><label class="lab">Next to activate — these are the ones being pushed into your writing and speaking tasks</label>`+pas.map(c=>`<div class="en">${esc(c.p)}</div>`).join(""));
+  host.appendChild(dk);
+
+  const er = el("div","card");
+  const errs = Object.entries(S.errors).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  er.innerHTML = `<div class="hd"><h2>Error tracker</h2><span class="sub">what keeps coming back</span></div>`;
+  if(!errs.length) er.insertAdjacentHTML("beforeend",`<p class="note">Nothing tracked yet. Submit a piece of writing or speaking and the pattern starts building.</p>`);
+  else{
+    const m = errs[0][1];
+    errs.forEach(([k,v])=>{
+      er.insertAdjacentHTML("beforeend", `<div class="lvlrow"><span class="nm">${esc(k)}</span><span class="bar"><i style="width:${Math.round(v/m*100)}%;background:var(--warn)"></i></span><span class="n">${v}</span></div>`);
+    });
+    er.insertAdjacentHTML("beforeend", `<p class="note" style="margin-top:10px">Repeated errors get extra targeted practice automatically — you'll see them in your writing prompts and corrections rather than as grammar lectures.</p>`);
+  }
+  host.appendChild(er);
+
+  const pl = el("div","card");
+  pl.innerHTML = `<div class="hd"><h2>This 30-day cycle</h2><span class="sub">cycle ${S.cycle} · day ${S.day}</span></div>
+  <table class="plan"><tr><th>Days</th><th>Focus</th><th>Speak</th><th>Write</th><th>Talk</th></tr>` +
+  PHASES.map(p=>`<tr class="${p===ph?"now":""}"><td>${p.d[0]}–${p.d[1]}</td><td>${esc(p.name)}<div class="note">${esc(p.focus)}</div></td><td>${esc(p.speak)}</td><td>${esc(p.write)}</td><td>${esc(p.convo)}</td></tr>`).join("")+
+  `</table><p class="note" style="margin-top:10px"><b>Goal of this phase:</b> ${esc(ph.goal)}</p>`;
+  host.appendChild(pl);
+
+  const pr = el("div","card");
+  pr.innerHTML = `<div class="hd"><h2>Your English profile</h2><span class="sub">built from what you actually produced</span><div class="spacer"></div></div>`;
+  const prow = el("div","row");
+  const gen = el("button","btn ghost sm", S.profile? "Rebuild profile":"Build my profile"); gen.setAttribute("data-ai-btn",""); gen.disabled=!SAMPLE;
+  prow.appendChild(gen);
+  const assess = el("button","btn accent sm","Run the 30-day assessment"); assess.setAttribute("data-ai-btn","");
+  assess.disabled = !SAMPLE || (S.day<30 && !S.pendingAssessment);
+  prow.appendChild(assess);
+  pr.appendChild(prow);
+  const pout = el("div"); pr.appendChild(pout);
+  if(S.profile) renderProfile(pout, S.profile);
+  else pout.innerHTML = `<p class="note" style="margin-top:10px">Not enough evidence yet, or not built. Do a few writing and speaking tasks first — the profile is only worth anything if it's based on your real output.</p>`;
+  gen.onclick = ()=> buildProfile(gen, pout);
+  assess.onclick = ()=> runAssessment(assess, pout);
+  host.appendChild(pr);
+
+  if(S.assessments.length){
+    const a = el("div","card");
+    a.innerHTML = `<div class="hd"><h2>Past assessments</h2></div>` + S.assessments.slice().reverse().map(x=>
+      `<div class="fb"><h4>Cycle ${x.cycle} · ${esc(x.d)} · ${esc(x.level||"")}</h4><p class="note">${esc((x.summary||"").slice(0,400))}</p></div>`).join("");
+    host.appendChild(a);
+  }
+
+  const dz = el("div","card tight");
+  dz.innerHTML = `<div class="note">Everything is saved automatically on this account.</div>`;
+  const exp = el("button","btn ghost sm","Export my data");
+  exp.onclick = ()=>{
+    const blob = new Blob([JSON.stringify(S,null,1)],{type:"application/json"});
+    const u = URL.createObjectURL(blob); const a=document.createElement("a");
+    a.href=u; a.download="english-progress-"+todayKey()+".json"; a.click(); setTimeout(()=>URL.revokeObjectURL(u),2000);
+  };
+  const r2 = el("div","row"); r2.style.marginTop="8px"; r2.appendChild(exp); dz.appendChild(r2);
+  host.appendChild(dz);
+};
+function evidence(){
+  const w = S.writing.slice(-4).map(x=>"["+x.d+" · "+(x.band||"?")+"] "+x.topic+" → "+(x.text||"").slice(0,420));
+  const s = S.speaking.slice(-3).map(x=>"["+x.d+" · "+(x.wpm||"?")+"wpm] "+x.topic+" → "+(x.text||"").slice(0,420));
+  const cards = Object.values(S.cards);
+  return [
+    "WRITING SAMPLES:\n"+(w.join("\n\n")||"none yet"),
+    "SPEAKING TRANSCRIPTS:\n"+(s.join("\n\n")||"none yet"),
+    "PHRASES USED SPONTANEOUSLY: "+(cards.filter(c=>c.use.spon>0).map(c=>c.p).join(" | ")||"none"),
+    "PHRASES RECOGNISED BUT NEVER USED: "+(cards.filter(c=>c.lvl>=2&&c.lvl<5).map(c=>c.p).slice(0,25).join(" | ")||"none"),
+    "ERROR COUNTS: "+(Object.entries(S.errors).sort((a,b)=>b[1]-a[1]).map(e=>e[0]+"="+e[1]).join(", ")||"none")
+  ].join("\n\n");
+}
+async function buildProfile(btn, out){
+  busy(btn,true,"Reading your work…");
+  try{
+    const r = await askJSON([{role:"user",content:
+      COACH+"\n\n"+learnerBrief()+"\n\nEVIDENCE FROM THEIR ACTUAL WORK:\n"+evidence().slice(0,12000)+
+      "\n\nBuild their English profile. Base every line on the evidence above — quote or paraphrase what they actually wrote or said. Do not inflate the level and do not criticise unnecessarily. If there isn't enough evidence for a section, say so in that section.\n"+
+      'Reply with ONLY this JSON: {"cefr":"A2|B1|B2|C1|C2","cefrWhy":"the evidence for that estimate","strengths":["",""],"weaknesses":["",""],"recurringErrors":["",""],"recognisedNotUsed":["",""],"usedNaturally":["",""],"misused":[""],"understoodNotAutomatic":[""],"fluencyBlockers":["the biggest things stopping natural communication"],"listening":"one line","pronunciation":"one line or unknown","conversational":"one line","nextThree":["priority 1","priority 2","priority 3"]}'
+    }],{modelTier:"complex", cache:false});
+    busy(btn,false);
+    S.profile = Object.assign({d:todayKey()}, r);
+    if(r.cefr) S.level = r.cefr;
+    save(); renderMeta(); renderProfile(out, S.profile);
+  }catch(e){ busy(btn,false); aiError(out,e); }
+}
+function renderProfile(out, p){
+  const L = (t,arr)=> (arr&&arr.length)? `<div class="fb"><h4>${esc(t)}</h4><ul class="list">${arr.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`:"";
+  out.innerHTML = `<hr class="sep">
+    <div class="row" style="margin-bottom:8px"><span class="pill y">Current estimate: ${esc(p.cefr||"?")}</span><span class="pill">${esc(p.d||"")}</span></div>
+    <p class="note">${esc(p.cefrWhy||"")}</p>
+    ${L("Strengths",p.strengths)}${L("Weaknesses",p.weaknesses)}${L("Recurring errors",p.recurringErrors)}
+    ${L("Recognised but not used",p.recognisedNotUsed)}${L("Used naturally",p.usedNaturally)}${L("Misused",p.misused)}
+    ${L("Understood but not automatic",p.understoodNotAutomatic)}${L("Fluency blockers",p.fluencyBlockers)}
+    <div class="fb"><h4>Listening</h4><p class="note">${esc(p.listening||"")}</p><h4>Pronunciation</h4><p class="note">${esc(p.pronunciation||"")}</p><h4>Conversation</h4><p class="note">${esc(p.conversational||"")}</p></div>
+    ${L("The three things that matter next",p.nextThree)}`;
+}
+async function runAssessment(btn, out){
+  busy(btn,true,"Comparing day 1 with today…");
+  try{
+    const first = S.writing.slice(0,2).map(x=>"["+x.d+"] "+(x.text||"").slice(0,400)).join("\n\n")||"no early sample";
+    const r = await askJSON([{role:"user",content:
+      COACH+"\n\n"+learnerBrief()+
+      "\n\nEARLIEST WRITING IN THIS CYCLE:\n"+first+
+      "\n\nCURRENT EVIDENCE:\n"+evidence().slice(0,11000)+
+      "\n\nThis is the end of a 30-day cycle. Compare the start of the cycle with now, then design the next 30 days. Do not declare a level reached because lessons were completed — require demonstrated performance, and cite it.\n"+
+      'Reply with ONLY this JSON: {"level":"A2|B1|B2|C1|C2","improved":["with evidence",""],"stillWeak":["",""],"recurringMistakes":[""],"newlyActive":[""],"stillPassive":[""],"fluencyBlockers":[""],"nextPriority":["","",""],"c2Gap":"what is still missing for C2, concretely","nextCycle":{"theme":"","days1_7":"","days8_14":"","days15_21":"","days22_30":"","harder":"what specifically gets harder, beyond just more vocabulary"},"summary":"3 sentences the learner should remember"}'
+    }],{modelTier:"complex", cache:false});
+    busy(btn,false);
+    S.assessments.push({d:todayKey(), cycle:S.cycle, level:r.level, summary:r.summary, full:r});
+    if(r.level) S.level = r.level;
+    S.pendingAssessment = false;
+    save(); renderMeta();
+    const L = (t,arr)=> (arr&&arr.length)? `<div class="fb"><h4>${esc(t)}</h4><ul class="list">${arr.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`:"";
+    out.innerHTML = `<hr class="sep"><div class="quote">${esc(r.summary||"")}</div>
+      <div class="row" style="margin:10px 0"><span class="pill y">Demonstrated: ${esc(r.level||"")}</span></div>
+      ${L("Improved",r.improved)}${L("Still weak",r.stillWeak)}${L("Recurring mistakes",r.recurringMistakes)}
+      ${L("Newly active vocabulary",r.newlyActive)}${L("Still passive",r.stillPassive)}${L("Fluency blockers",r.fluencyBlockers)}
+      <div class="fb fix"><h4>The gap to C2</h4><p>${esc(r.c2Gap||"")}</p></div>
+      ${L("Next three priorities",r.nextPriority)}
+      <div class="fb ok"><h4>Next 30 days — ${esc((r.nextCycle||{}).theme||"")}</h4>
+        <p class="note">Days 1–7: ${esc((r.nextCycle||{}).days1_7||"")}</p>
+        <p class="note">Days 8–14: ${esc((r.nextCycle||{}).days8_14||"")}</p>
+        <p class="note">Days 15–21: ${esc((r.nextCycle||{}).days15_21||"")}</p>
+        <p class="note">Days 22–30: ${esc((r.nextCycle||{}).days22_30||"")}</p>
+        <p class="note"><b>What gets harder:</b> ${esc((r.nextCycle||{}).harder||"")}</p></div>`;
+  }catch(e){ busy(btn,false); aiError(out,e); }
+}
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+(async function boot(){
+  seedCards();
+  try{
+    if(window.claude && claude.use){
+      const u = await claude.use("user");
+      if(u){ try{ UID = await u.id(); }catch(e){} }
+      DB = await claude.use("db");
+    }
+  }catch(e){}
+  await load();
+  ensureDaily();
+  /* adapt conversation step to the plan, unless the learner has moved ahead */
+  if(S.convo.stage < phase().stage && !S.convo.turns.length) S.convo.stage = phase().stage;
+  save();
+  renderMeta();
+  go("cards");
+  initClaude().then(()=>{
+    document.querySelectorAll("[data-ai-btn]").forEach(n=>{ n.disabled = !SAMPLE; });
+    if(!SAMPLE){
+      $("#foot").textContent = "Coaching feedback needs Claude. Flashcards, the schedule, timers and tracking work without it. · Updated "+BUILD;
+    }else{
+      $("#foot").textContent = "Grade honestly. Produce more than you study. Come back tomorrow. · Updated "+BUILD;
+    }
+    if(CUR) go(CUR);
+  });
+  window.addEventListener("beforeunload", ()=>{ try{ localStorage.setItem(LSKEY, JSON.stringify(S)); }catch(e){} });
+})();
+
+</script>
+</body>
+</html>
